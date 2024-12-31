@@ -2,7 +2,7 @@ Building and Running notes
 
 First: clone circle-stdlib
 
-Second: read its README and INSTALL, you'll need the aarch64 ARM compiler
+Second: read its README and INSTALL, you'll need the aarch64 ARM compiler so follow all instructions to build it
 
 Circle-stdlib configure
 
