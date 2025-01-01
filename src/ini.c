@@ -7,15 +7,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifndef EMSCRIPTEN
 #include <stdio.h>
-#else
-#include <emscripten.h>
-#endif
 
 static int load_file(struct loaded_file* lf, char* path)
 {
-#ifndef EMSCRIPTEN
     FILE* f = fopen(path, "rb");
     if (!f)
         return -1;
@@ -30,13 +25,6 @@ static int load_file(struct loaded_file* lf, char* path)
 
     fclose(f);
     return 0;
-#else
-    EM_ASM_({
-        window["load_file_xhr"]($0, $1, $2);
-    },
-        &lf->length, &lf->data, path);
-    return 0;
-#endif
 }
 
 struct ini_field {
@@ -306,32 +294,21 @@ static int parse_disk(struct drive_info* drv, struct ini_section* s, int id)
     char* path = get_field_string(s, "file");
 
     if (driver < 0 && inserted) {
-#ifndef EMSCRIPTEN
         // Try auto-detecting driver type if not specified.
         driver = drive_autodetect_type(path);
         if (driver < 0)
             FATAL("INI", "Unable to determine driver to use for ata%d-%s!\n", id >> 1, id & 1 ? "slave" : "master");
-
-#else
-        // The wrapper code already knows what driver we have. It knows best.
-        driver = 0;
-#endif
     }
 
     if (driver == 0 && wb)
         printf("WARNING: Disk %d uses async (chunked) driver but writeback is not supported!!\n", id);
     drv->modify_backing_file = wb;
     if (path && inserted) {
-#ifndef EMSCRIPTEN
         UNUSED(id);
         if (driver == 0)
             return drive_init(drv, path);
         else
             return drive_simple_init(drv, path);
-#else
-        UNUSED(driver);
-        EM_ASM_({ window["drive_init"]($0, $1, $2); }, drv, path, id);
-#endif
     }
 
     return 0;
@@ -347,9 +324,6 @@ static char* dupstr(char* src)
     return res;
 }
 
-#ifdef EMSCRIPTEN
-EMSCRIPTEN_KEEPALIVE
-#endif
 int parse_cfg(struct pc_settings* pc, char* data)
 {
     struct ini_section* global = ini_parse(data);
@@ -435,13 +409,11 @@ int parse_cfg(struct pc_settings* pc, char* data)
                 i += 2;
             }
         }
-#ifndef EMSCRIPTEN
         if (pc->ne2000.enabled) {
             // Emscripten network configuration is done in libhalfix.js -- there's nothing to do here.
             char* cfg = get_field_string(net, "arg"); // "arg" is a parameter to the network driver
             net_init(cfg);
         }
-#endif
     } else {
         pc->ne2000.enabled = 0;
     }

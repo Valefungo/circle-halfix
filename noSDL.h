@@ -19,6 +19,8 @@ extern "C" {
 #define SDL_MOUSEBUTTONUP   4
 #define SDL_MOUSEMOTION     5
 #define SDL_KEYUP           6
+#define SDL_MOD_KEYDOWN     7
+#define SDL_MOD_KEYUP       8
 
 #define SDL_BUTTON_LEFT     1
 #define SDL_BUTTON_MIDDLE   2
@@ -73,6 +75,11 @@ void SDL_WM_SetCaption(const char *title, const char *icon);
 SDL_GrabMode SDL_WM_GrabInput(SDL_GrabMode mode);
 
 void SDL_Kernel_Log(const char *line);
+
+
+void SDL_wrapStartTimer();
+unsigned SDL_wrapCheckTimer();
+unsigned SDL_wrapCheckTimerMs();
 
 #ifdef __cplusplus
 }

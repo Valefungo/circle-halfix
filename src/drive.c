@@ -7,22 +7,15 @@
 #include "util.h"
 #include <stdlib.h>
 #include <string.h>
-#ifndef EMSCRIPTEN
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <zlib.h>
-#else
-#include <emscripten.h>
-#endif
 
-#ifdef EMSCRIPTEN
 #define SIMULATE_ASYNC_ACCESS
-#endif
-#define SIMULATE_ASYNC_ACCESS
-#if !defined(EMSCRIPTEN) && defined(SIMULATE_ASYNC_ACCESS)
+#if defined(SIMULATE_ASYNC_ACCESS)
 static void (*global_cb)(void*, int);
 static void* global_cb_arg1;
 #endif
@@ -65,10 +58,6 @@ struct block_info {
 };
 
 struct drive_internal_info {
-#ifdef EMSCRIPTEN
-    int drive_id;
-#else
-#endif
     // IDE callback
     void (*callback)(void*, int);
     void* ide_callback_arg1;
@@ -128,20 +117,10 @@ static void drive_get_path(char* dest, char* pathbase, uint32_t x)
 static int drive_read_block_internal(struct drive_internal_info* this, struct block_info* info, void* buffer, uint32_t length, uint32_t position)
 {
     uint32_t blockoffs = position % this->block_size;
-#ifdef EMSCRIPTEN
-    UNUSED(info);
-    return EM_ASM_INT({
-        /* id, buffer, offset, length */
-        return window["drives"][$0]["readCache"]($1, $2, $3, $4) | 0;
-    },
-        this->drive_id, position / this->block_size, buffer, blockoffs, length);
-#else
     memcpy(buffer, info->data + blockoffs, length);
     return 0;
-#endif
 }
 
-#ifndef EMSCRIPTEN
 // Read file from cache, uncompress, and return allocated value
 static void* drive_read_file(struct drive_internal_info* this, char* fn)
 {
@@ -199,7 +178,6 @@ static void* drive_read_file(struct drive_internal_info* this, char* fn)
     close(fd);
     return data;
 }
-#endif
 
 // Read data from remote source (i.e. file, web server, etc.)
 static int drive_internal_read_remote(struct drive_internal_info* this, struct block_info* blockinfo, uint8_t* buffer, uint32_t pos, uint32_t length)
@@ -207,17 +185,6 @@ static int drive_internal_read_remote(struct drive_internal_info* this, struct b
     char temp[1024];
     uint32_t block = pos / this->block_size;
     drive_get_path(temp, this->paths[blockinfo->pathindex], block);
-#ifdef EMSCRIPTEN
-    // Mark the block cache entry as valid
-    blockinfo->data = (uint8_t*)(1);
-    UNUSED(buffer);
-    UNUSED(length);
-    return EM_ASM_INT({
-        /* str, id */
-        return window["drives"][$0]["readQueue"]($1, $2);
-    },
-        this->drive_id, temp, block);
-#else
     // Open the file, allocate memory, read file, and close file.
     blockinfo->data = drive_read_file(this, temp);
 
@@ -230,7 +197,6 @@ static int drive_internal_read_remote(struct drive_internal_info* this, struct b
 #endif
 
     return 0;
-#endif
 }
 
 // This function loads blocks from the cache. Returns 0 if all blocks were read from the cache.
@@ -256,9 +222,6 @@ static int drive_internal_read_check(struct drive_internal_info* this, void* buf
             if (end == 0)
                 end = BLOCK_SIZE;
         }
-#if 0 && defined(EMSCRIPTEN)
-        blockInformation->data = (void*)1;
-#endif
         len = end - begin;
         //printf("BlockInformation: %p Data: %p cfp=%d\n", blockInformation, blockInformation->data, currentFilePosition / 512);
         if (blockInformation->data) {
@@ -305,12 +268,7 @@ static int drive_internal_read(void* this_ptr, void* cb_ptr, void* buffer, uint3
     this->callback = cb;
     this->ide_callback_arg1 = cb_ptr;
     transfer_in_progress = 1;
-#ifdef EMSCRIPTEN
-    EM_ASM_({
-        window["drives"][$0]["flushReadQueue"]($1, $2);
-    },
-        this->drive_id, drive_internal_read_cb, this);
-#elif defined(SIMULATE_ASYNC_ACCESS)
+#if defined(SIMULATE_ASYNC_ACCESS)
     global_cb = drive_internal_read_cb;
     global_cb_arg1 = this;
 #endif
@@ -328,17 +286,6 @@ static int drive_internal_write_remote(struct drive_internal_info* this, struct 
     char temp[1024];
     uint32_t block = pos / this->block_size;
     drive_get_path(temp, this->paths[blockinfo->pathindex], block);
-#ifdef EMSCRIPTEN
-    // We have to read the block in order for it to be valid
-    blockinfo->data = (uint8_t*)(1);
-    UNUSED(buffer);
-    UNUSED(length);
-    return EM_ASM_INT({
-        /* str, id */
-        return window["drives"][$0]["readQueue"]($1, $2);
-    },
-        this->drive_id, temp, block);
-#else
     // Open the file, allocate memory, read file, and close file.
     blockinfo->data = drive_read_file(this, temp);
 
@@ -351,7 +298,6 @@ static int drive_internal_write_remote(struct drive_internal_info* this, struct 
 #endif
 
     return 0;
-#endif
 }
 
 // Reads block information from a file.
@@ -359,17 +305,8 @@ static int drive_write_block_internal(struct drive_internal_info* this, struct b
 {
     info->modified = 1;
     uint32_t blockoffs = position % this->block_size;
-#ifdef EMSCRIPTEN
-    UNUSED(info);
-    return EM_ASM_INT({
-        /* id, buffer, offset, length */
-        return window["drives"][$0]["writeCache"]($1, $2, $3, $4);
-    },
-        this->drive_id, position / this->block_size, buffer, blockoffs, length);
-#else
     memcpy(info->data + blockoffs, buffer, length);
     return 0;
-#endif
 }
 // This function loads blocks from the cache. Returns 0 if all blocks were read from the cache.
 static int drive_internal_write_check(struct drive_internal_info* this, void* buffer, uint32_t length, drv_offset_t position, int no_xhr)
@@ -440,12 +377,7 @@ static int drive_internal_write(void* this_ptr, void* cb_ptr, void* buffer, uint
     this->callback = cb;
     this->ide_callback_arg1 = cb_ptr;
     transfer_in_progress = 1;
-#ifdef EMSCRIPTEN
-    EM_ASM_({
-        window["drives"][$0]["flushReadQueue"]($1, $2);
-    },
-        this->drive_id, drive_internal_write_cb, this);
-#elif defined(SIMULATE_ASYNC_ACCESS)
+#if defined(SIMULATE_ASYNC_ACCESS)
     global_cb = drive_internal_write_cb;
     global_cb_arg1 = this;
 #endif
@@ -473,23 +405,12 @@ static int drive_internal_prefetch_remote(struct drive_internal_info* this, stru
     char temp[1024];
     uint32_t block = pos / this->block_size;
     drive_get_path(temp, this->paths[blockinfo->pathindex], block);
-#ifdef EMSCRIPTEN
-    // Mark the block cache entry as valid
-    blockinfo->data = (uint8_t*)(1);
-    UNUSED(length);
-    return EM_ASM_INT({
-        /* str, id */
-        return window["drives"][$0]["readQueue"]($1, $2);
-    },
-        this->drive_id, temp, block);
-#else
     // Open the file, allocate memory, read file, and close file.
     blockinfo->data = drive_read_file(this, temp);
 
     UNUSED(length);
 
     return 0;
-#endif
 }
 // This function prefetches information from the buffer, but does not load anything.
 // Returns 0 if all blocks were loaded from the cache
@@ -543,12 +464,7 @@ static int drive_internal_prefetch(void* this_ptr, void* cb_ptr, uint32_t length
     this->callback = cb;
     this->ide_callback_arg1 = cb_ptr;
     transfer_in_progress = 1;
-#ifdef EMSCRIPTEN
-    EM_ASM_({
-        window["drives"][$0]["flushReadQueue"]($1, $2);
-    },
-        this->drive_id, drive_internal_prefetch_cb, this);
-#elif defined(SIMULATE_ASYNC_ACCESS)
+#if defined(SIMULATE_ASYNC_ACCESS)
     global_cb = drive_internal_prefetch_cb;
     global_cb_arg1 = this;
 #endif
@@ -636,11 +552,7 @@ static void drive_internal_state(void* this_ptr, char* pn)
 }
 
 // This is a drive type that can be used for both native and Emscripten builds.
-#ifndef EMSCRIPTEN // Browser version will call from emscripten.c
-static
-#endif
-    int
-    drive_internal_init(struct drive_info* info, char* filename, void* info_dat, int drvid)
+static int drive_internal_init(struct drive_info* info, char* filename, void* info_dat, int drvid)
 {
     struct drive_internal_info* drv = malloc(sizeof(struct drive_internal_info));
 
@@ -651,11 +563,7 @@ static
     drv->path_count = 1;
     drv->paths = malloc(sizeof(char*));
     drv->paths[0] = pathbase;
-#ifdef EMSCRIPTEN
-    drv->drive_id = drvid;
-#else
     UNUSED(drvid);
-#endif
 
     // Parse
     struct drive_info_file* internal = info_dat;
@@ -677,14 +585,11 @@ static
     info->cylinders_per_head = info->sectors / (info->sectors_per_cylinder * info->heads);
 
     return 0;
-#ifdef EMSCRIPTEN
-#else
-#endif
 }
 
 void drive_check_complete(void)
 {
-#if !defined(EMSCRIPTEN) && defined(SIMULATE_ASYNC_ACCESS)
+#if defined(SIMULATE_ASYNC_ACCESS)
     if (transfer_in_progress) {
         global_cb(global_cb_arg1, 0);
         transfer_in_progress = 0;
@@ -699,16 +604,6 @@ int drive_async_event_in_progress(void)
 #endif
 }
 
-#ifndef EMSCRIPTEN
-#if 0
-function join_path(a, b) {
-    if (b.charAt(0) !== "/") 
-        b = "/" + b;
-    if (a.charAt(a.length - 1) === "/") 
-        a = a.substring(0, a.length - 1);
-    return normalize_path(a + b);
-}
-#endif
 int drive_init(struct drive_info* info, char* filename)
 {
     char buf[1024];
@@ -731,13 +626,11 @@ int drive_init(struct drive_info* info, char* filename)
     free(data);
     return 0;
 }
-#endif
+
 void drive_state(struct drive_info* info, char* filename)
 {
     info->state(info->data, filename);
 }
-
-#ifndef EMSCRIPTEN
 
 // Simple driver
 
@@ -922,7 +815,6 @@ void drive_destroy_simple(struct drive_info* info)
     free(simple_info);
 }
 
-#ifndef EMSCRIPTEN
 // Autodetect drive type
 int drive_autodetect_type(char* path)
 {
@@ -946,5 +838,4 @@ int drive_autodetect_type(char* path)
         return 1; // Raw image file 
     
 }
-#endif
-#endif
+

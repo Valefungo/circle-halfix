@@ -44,14 +44,14 @@ extern "C" {
 }
 #endif
 
+// #define LOGG_C(...)
+// #define LOGG_K(...)
+
 // #define LOGG_C(...) printf(__VA_ARGS__)
 // #define LOGG_K(...) printf(__VA_ARGS__)
 
-#define LOGG_C(...) 
-#define LOGG_K(...) 
-
-// #define LOGG_C(...) this_kernel->p_mLogger->Write (this_kernel->GetKernelName(), LogNotice, __VA_ARGS__)
-// #define LOGG_K(...) this_kernel->mLogger.Write (this_kernel->GetKernelName(), LogNotice, __VA_ARGS__)
+#define LOGG_C(...) this_kernel->p_mLogger->Write (this_kernel->GetKernelName(), LogNotice, __VA_ARGS__)
+#define LOGG_K(...) this_kernel->mLogger.Write (this_kernel->GetKernelName(), LogNotice, __VA_ARGS__)
 
 static CKernel *this_kernel;
 static int do_screenshot=0;
@@ -166,15 +166,35 @@ void SDL_Kernel_Log(const char *line)
 }
 
 SDL_Event static_event;
+SDL_Event static_mod_event;
 SDL_Event static_mouse_event;
 int lastmousex=0;
 int lastmousey=0;
 
+void addModDown(int mod)
+{
+    static_mod_event.type = SDL_MOD_KEYDOWN;
+    static_mod_event.key_keysym_mod = mod;
+}
+
+void addModUp(int mod)
+{
+    static_mod_event.type = SDL_MOD_KEYUP;
+    static_mod_event.key_keysym_mod = mod;
+}
+
 int SDL_PollEvent(SDL_Event *event)
 {
+    if (static_mod_event.type != 0)
+    {
+        memcpy(event, &static_mod_event, sizeof(SDL_Event));
+        static_mod_event.type = 0;
+        return SDL_TRUE;
+    }
+
     if (static_event.type != 0)
     {
-        LOGG_C( "KPOLL %d %04X %02X", static_event.type, static_event.key_keysym_sym, static_event.key_keysym_mod);
+        // LOGG_C( "KPOLL %d %04X %02X", static_event.type, static_event.key_keysym_sym, static_event.key_keysym_mod);
 
         memcpy(event, &static_event, sizeof(SDL_Event));
         static_event.type = 0;
@@ -183,7 +203,7 @@ int SDL_PollEvent(SDL_Event *event)
 
     if (static_mouse_event.type != 0)
     {
-        LOGG_C( "MPOLL %d x%d y%d\n", static_mouse_event.type, static_mouse_event.motion_xrel, static_mouse_event.motion_yrel);
+        // LOGG_C( "MPOLL %d x%d y%d\n", static_mouse_event.type, static_mouse_event.motion_xrel, static_mouse_event.motion_yrel);
 
         memcpy(event, &static_mouse_event, sizeof(SDL_Event));
         static_mouse_event.type = 0;
@@ -200,9 +220,9 @@ void SDL_FreeSurface(SDL_Surface *surface)
 
 int SDL_Flip(SDL_Surface *screen)
 {
-    LOGG_C( "SDL_Flip IN  %d, %d", screen->w, screen->h);
-    this_kernel->screen2d->UpdateDisplay();
-    LOGG_C( "SDL_Flip OUT %d, %d", screen->w, screen->h);
+    // LOGG_C( "SDL_Flip IN  %d, %d", screen->w, screen->h);
+    this_kernel->wrapUpdateDisplay();
+    // LOGG_C( "SDL_Flip OUT %d, %d", screen->w, screen->h);
     return 0;
 }
 
@@ -213,14 +233,14 @@ int SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst, SDL_R
 
 #ifdef TRUE_RASPI_4
     // no, let it stay dirty to be able to see any log
-    // this_kernel->screen2d->ClearScreen(BLACK_COLOR);
+    // this_kernel->wrapClearScreen(BLACK_COLOR);
 
-    this_kernel->screen2d->DrawImage(0, 0, src->w, src->h, (TScreenColor *)src->pixels);
+    this_kernel->wrapDrawImage(0, 0, src->w, src->h, (TScreenColor *)src->pixels);
 #else
     TScreenColor *scr = (TScreenColor *)src->pixels;
 
     // emulated raspi 3
-    // this_kernel->screen2d->ClearScreen(BLACK_COLOR);
+    this_kernel->wrapClearScreen(BLACK_COLOR);
 
     TScreenColor pix[src->w * src->h];
     unsigned int temp;
@@ -234,7 +254,7 @@ int SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst, SDL_R
         pix[y] = COLOR32(r, g, b, 255);
     }
 
-    this_kernel->screen2d->DrawImage(0, 0, src->w, src->h, pix);
+    this_kernel->wrapDrawImage(0, 0, src->w, src->h, pix);
 
 #endif
 
@@ -258,8 +278,8 @@ SDL_Surface * SDL_SetVideoMode(int width, int height, int bpp, Uint32 flags)
     virtual_screen_height = height;
     // LOG_C( "SDL_SetVideoMode %d, %d, %d, %d\n", width, height, bpp, DEPTH);
 
-//    if (height != 0)
-//        this_kernel->screen2d->Resize(width, height);
+    if (height != 0)
+        this_kernel->wrapResize(width, height);
 
     SDL_Surface *su = (SDL_Surface *)malloc(sizeof(SDL_Surface));
     su->w = width;
@@ -281,6 +301,23 @@ SDL_Surface * SDL_CreateRGBSurfaceFrom(void *pixels, int width, int height, int 
     return su;
 }
 
+void SDL_wrapStartTimer()
+{
+    this_kernel->StartTimer();
+}
+
+unsigned SDL_wrapCheckTimer()
+{
+    return this_kernel->CheckTimer();
+}
+
+unsigned SDL_wrapCheckTimerMs()
+{
+    return this_kernel->CheckTimerMs();
+}
+
+
+
 using namespace std;
 
 CKernel::CKernel (void) : CStdlibAppStdio ("circle-halfix")
@@ -288,6 +325,116 @@ CKernel::CKernel (void) : CStdlibAppStdio ("circle-halfix")
     this_kernel = this;
     p_mLogger = &mLogger;   // make this available to C code
     mActLED.Blink (5);  // show we are alive
+}
+
+void CKernel::DrawColorRect (unsigned nX, unsigned nY, unsigned nWidth, unsigned nHeight, TScreenColor Color,
+                             unsigned nTargetWidth, unsigned nTargetHeight, TScreenColor *targetPixelBuffer)
+{
+        if(nX + nWidth > nTargetWidth || nY + nHeight > nTargetHeight)
+        {
+                return;
+        }
+
+        for(unsigned i=0; i<nHeight; i++)
+        {
+                for(unsigned j=0; j<nWidth; j++)
+                {
+                        targetPixelBuffer[(nY + i) * nTargetWidth + j + nX] = Color;
+                }
+        }
+}
+
+void CKernel::DrawColorRect (unsigned nX, unsigned nY, unsigned nWidth, unsigned nHeight, TScreenColor Color)
+{
+    DrawColorRect(nX, nY, nWidth, nHeight, Color,
+                mScreen.GetWidth(), mScreen.GetHeight(), (TScreenColor *)(mScreen.GetFrameBuffer()->GetBuffer()));
+}
+
+
+void CKernel::DrawImageRect (unsigned nX, unsigned nY, unsigned nWidth, unsigned nHeight,
+                             unsigned nSourceX, unsigned nSourceY, TScreenColor *sourcePixelBuffer,
+                             unsigned nTargetWidth, unsigned nTargetHeight, TScreenColor *targetPixelBuffer)
+{
+        if(nX + nWidth > nTargetWidth || nY + nHeight > nTargetHeight)
+        {
+                return;
+        }
+
+        for(unsigned i=0; i<nHeight; i++)
+        {
+                for(unsigned j=0; j<nWidth; j++)
+                {
+                        targetPixelBuffer[(nY + i) * nTargetWidth + j + nX] = sourcePixelBuffer[(nSourceY + i) * nWidth + j + nSourceX];
+                }
+        }
+}
+
+void CKernel::DrawImageRect (unsigned nX, unsigned nY, unsigned nWidth, unsigned nHeight,
+                unsigned nSourceX, unsigned nSourceY, TScreenColor *sourcePixelBuffer)
+{
+    DrawImageRect(nX, nY, nWidth, nHeight, nSourceX, nSourceY, sourcePixelBuffer,
+                  mScreen.GetWidth(), mScreen.GetHeight(), (TScreenColor *)(mScreen.GetFrameBuffer()->GetBuffer()));
+}
+
+void CKernel::DrawText (unsigned nX, unsigned nY, TScreenColor Color, const char *pText, TTextAlign Align,
+                             unsigned nTargetWidth, unsigned nTargetHeight, TScreenColor *targetPixelBuffer)
+{
+        unsigned nWidth = strlen (pText) * m_Font.GetCharWidth ();
+        if (Align == AlignRight)
+        {
+                nX -= nWidth;
+        }
+        else if (Align == AlignCenter)
+        {
+                nX -= nWidth / 2;
+        }
+
+        if (   nX > nTargetWidth
+            || nX + nWidth > nTargetWidth
+            || nY + m_Font.GetUnderline () > nTargetHeight)
+        {
+                return;
+        }
+
+        for (; *pText != '\0'; pText++, nX += m_Font.GetCharWidth ())
+        {
+                for (unsigned y = 0; y < m_Font.GetUnderline (); y++)
+                {
+                        for (unsigned x = 0; x < m_Font.GetCharWidth (); x++)
+                        {
+                                if (m_Font.GetPixel (*pText, x, y))
+                                {
+                                        targetPixelBuffer[(nY + y) * nTargetWidth + x + nX] = Color;
+                                }
+                        }
+                }
+        }
+}
+
+void CKernel::DrawText (unsigned nX, unsigned nY, TScreenColor Color, const char *pText, TTextAlign Align)
+{
+    DrawText(nX, nY, Color, pText, Align,
+            mScreen.GetWidth(), mScreen.GetHeight(), (TScreenColor *)(mScreen.GetFrameBuffer()->GetBuffer()));
+}
+
+
+static unsigned nStartTicks = 0;
+void CKernel::StartTimer()
+{
+    nStartTicks = CTimer::GetClockTicks();
+}
+
+unsigned CKernel::CheckTimer()
+{
+    unsigned nEndTicks = CTimer::GetClockTicks();
+    return nEndTicks;
+}
+
+unsigned CKernel::CheckTimerMs()
+{
+    unsigned nEndTicks = CTimer::GetClockTicks();
+    unsigned nDurationMs = (nEndTicks - nStartTicks) / 1000;
+    return nDurationMs;
 }
 
 void CKernel::MsPause(int ms)
@@ -312,6 +459,29 @@ void CKernel::Pause(char *m)
     / **/
 }
 
+void CKernel::wrapUpdateDisplay()
+{
+    // does not exists: mScreen.UpdateDisplay();
+}
+
+void CKernel::wrapClearScreen(TScreenColor color)
+{
+    // does not exists: mScreen.ClearScreen(TScreenColor color)
+    // memset in the GetFrameBuffer
+}
+
+void CKernel::wrapDrawImage(unsigned nX, unsigned nY, unsigned nWidth, unsigned nHeight, TScreenColor *sourcePixelBuffer)
+{
+    // mScreen.GetFrameBuffer()->WaitForVerticalSync();
+    DrawImageRect(nX, nY, nWidth, nHeight, 0, 0, sourcePixelBuffer,
+                  mScreen.GetWidth(), mScreen.GetHeight(), (TScreenColor *)(mScreen.GetFrameBuffer()->GetBuffer()));
+}
+
+void CKernel::wrapResize(unsigned nWidth, unsigned nHeight)
+{
+    // mScreen.Resize(nWidth, nHeight);
+}
+
 bool CKernel::Initialize(void)
 {
     Pause((char *)"ini-init");
@@ -322,13 +492,8 @@ bool CKernel::Initialize(void)
 
 #ifdef TRUE_RASPI_4
     mScreen.Resize(1920, 1080);
-    // no vsync
-    screen2d = new C2DGraphics(1920, 1080, FALSE, 0);
-    screen2d->Initialize();
 #else
-    // little screen on qemu
-    screen2d = new C2DGraphics(1024, 768, FALSE, 0);
-    screen2d->Initialize();
+
 #endif
 
     // https://stackoverflow.com/questions/69558563/how-to-convert-between-keyboard-scan-code-and-usb-keyboard-usage-index
@@ -485,70 +650,87 @@ void CKernel::UpdateKeyboardAndMouse()
     m_pKeyboard = (CUSBKeyboardDevice *) mDeviceNameService.GetDevice ("ukbd1", FALSE);
     m_pMouse = (CMouseDevice *) mDeviceNameService.GetDevice ("mouse1", FALSE);
 
-    LOGG_K( "Update K&M: %d k %08X %08X m %08X %08X", bUpdated, m_pKeyboard, m_pre_pKeyboard, m_pMouse, m_pre_pMouse);
-
-    if (m_pKeyboard != m_pre_pKeyboard)
+    // LOGG_K( "Update K&M: %d k %08X %08X m %08X %08X", bUpdated, m_pKeyboard, m_pre_pKeyboard, m_pMouse, m_pre_pMouse);
+    if (bUpdated)
     {
-        if (m_pKeyboard != 0)
+        if (m_pKeyboard != m_pre_pKeyboard)
         {
-            m_pKeyboard->RegisterRemovedHandler (KeyboardRemovedHandler);
-
-            m_pKeyboard->RegisterKeyStatusHandlerRaw (KeyStatusHandlerRaw);
-        }
-
-        if (m_pKeyboard != 0)
-        {
-            // CUSBKeyboardDevice::UpdateLEDs() must not be called in interrupt context,
-            // that's why this must be done here. This does nothing in raw mode.
-            m_pKeyboard->UpdateLEDs ();
-        }
-    }
-
-    if (m_pMouse != m_pre_pMouse)
-    {
-        if (m_pMouse != 0)
-        {
-            m_pMouse->RegisterRemovedHandler (MouseRemovedHandler);
-
-            LOGG_K( "USB mouse has %d buttons and %s wheel", m_pMouse->GetButtonCount(), m_pMouse->HasWheel() ? "a" : "no");
-
-            m_pMouse->Release();
-            if (!m_pMouse->Setup (virtual_screen_width, virtual_screen_height))
+            if (m_pKeyboard != 0)
             {
-                LOGG_K( "Cannot setup mouse");
+                m_pKeyboard->RegisterRemovedHandler (KeyboardRemovedHandler);
+
+                m_pKeyboard->RegisterKeyStatusHandlerRaw (KeyStatusHandlerRaw);
             }
 
-            m_pMouse->SetCursor (0, 0);
-            m_pMouse->ShowCursor (TRUE);
-
-            m_pMouse->RegisterEventHandler (MouseEventStub);
+            if (m_pKeyboard != 0)
+            {
+                // CUSBKeyboardDevice::UpdateLEDs() must not be called in interrupt context,
+                // that's why this must be done here. This does nothing in raw mode.
+                m_pKeyboard->UpdateLEDs ();
+            }
         }
 
-        if (m_pMouse != 0)
+        if (m_pMouse != m_pre_pMouse)
         {
-            m_pMouse->UpdateCursor ();
-        }
-    }
+            if (m_pMouse != 0)
+            {
+                m_pMouse->RegisterRemovedHandler (MouseRemovedHandler);
 
-    m_pre_pMouse = m_pMouse;
-    m_pre_pKeyboard = m_pKeyboard;
+                LOGG_K( "USB mouse has %d buttons and %s wheel", m_pMouse->GetButtonCount(), m_pMouse->HasWheel() ? "a" : "no");
+
+                m_pMouse->Release();
+                if (!m_pMouse->Setup (virtual_screen_width, virtual_screen_height))
+                {
+                    LOGG_K( "Cannot setup mouse");
+                }
+
+                m_pMouse->SetCursor (0, 0);
+                m_pMouse->ShowCursor (TRUE);
+
+                m_pMouse->RegisterEventHandler (MouseEventStub);
+            }
+
+            if (m_pMouse != 0)
+            {
+                m_pMouse->UpdateCursor ();
+            }
+        }
+
+        m_pre_pMouse = m_pMouse;
+        m_pre_pKeyboard = m_pKeyboard;
+    }
 }
+
+static unsigned keycount;
+static unsigned char lc=0, ls=0, la=0, lw=0;
+static unsigned char rc=0, rs=0, ra=0, rw=0;
 
 void CKernel::KeyStatusHandlerRaw (unsigned char ucModifiers, const unsigned char RawKeys[6])
 {
-        assert (this_kernel != 0);
-
         unsigned int sdlmods = 0;
-        if (ucModifiers & LCTRL) sdlmods += KMOD_LCTRL;
-        if (ucModifiers & LSHIFT) sdlmods += KMOD_LSHIFT;
-        if (ucModifiers & ALT) sdlmods += KMOD_LALT;
-        if (ucModifiers & LWIN) sdlmods += KMOD_LMETA;
-        if (ucModifiers & RCTRL) sdlmods += KMOD_RCTRL;
-        if (ucModifiers & RSHIFT) sdlmods += KMOD_RSHIFT;
-        if (ucModifiers & ALTGR) sdlmods += KMOD_RALT;
-        if (ucModifiers & RWIN) sdlmods += KMOD_RMETA;
+
+        if (ucModifiers & LCTRL)    { sdlmods += KMOD_LCTRL;  if (lc == 0) addModDown(KMOD_LCTRL);  lc=1; } else { if (lc == 1) addModUp(KMOD_LCTRL);   lc=0; }
+        if (ucModifiers & LSHIFT)   { sdlmods += KMOD_LSHIFT; if (ls == 0) addModDown(KMOD_LSHIFT); ls=1; } else { if (ls == 1) addModUp(KMOD_LSHIFT);  ls=0; }
+        if (ucModifiers & ALT)      { sdlmods += KMOD_LALT;   if (la == 0) addModDown(KMOD_LALT);   la=1; } else { if (la == 1) addModUp(KMOD_LALT);    la=0; }
+        if (ucModifiers & LWIN)     { sdlmods += KMOD_LMETA;  if (lw == 0) addModDown(KMOD_LMETA);  lw=1; } else { if (lw == 1) addModUp(KMOD_LMETA);   lw=0; }
+        if (ucModifiers & RCTRL)    { sdlmods += KMOD_RCTRL;  if (rc == 0) addModDown(KMOD_RCTRL);  rc=1; } else { if (rc == 1) addModUp(KMOD_RCTRL);   rc=0; }
+        if (ucModifiers & RSHIFT)   { sdlmods += KMOD_RSHIFT; if (rs == 0) addModDown(KMOD_RSHIFT); rs=1; } else { if (rs == 1) addModUp(KMOD_RSHIFT);  rs=0; }
+        if (ucModifiers & ALTGR)    { sdlmods += KMOD_RALT;   if (ra == 0) addModDown(KMOD_RALT);   ra=1; } else { if (ra == 1) addModUp(KMOD_RALT);    ra=0; }
+        if (ucModifiers & RWIN)     { sdlmods += KMOD_RMETA;  if (rw == 0) addModDown(KMOD_RMETA);  rw=1; } else { if (rw == 1) addModUp(KMOD_RMETA);   rw=0; }
 
         static_event.key_keysym_mod = sdlmods;
+
+        char deb[200] = "";
+        keycount++;
+        sprintf(deb, "%06d -- %c%c%c%c     %02X %02X %02X %02X %02X %02X       %c%c%c%c --",
+                keycount,
+                (lc?'C':' '), (ls?'S':' '), (la?'A':' '), (lw?'W':' '),
+                RawKeys[0], RawKeys[1], RawKeys[2], RawKeys[3], RawKeys[4], RawKeys[5],
+                (rc?'C':' '), (rs?'S':' '), (ra?'A':' '), (rw?'W':' ')
+                );
+        this_kernel->DrawColorRect (20, 700, 800, 16, BLACK_COLOR);
+
+        this_kernel->DrawText (20, 700, BRIGHT_WHITE_COLOR, deb, TTextAlign::AlignLeft);
 
         u16 k = 0;
 
@@ -562,7 +744,6 @@ void CKernel::KeyStatusHandlerRaw (unsigned char ucModifiers, const unsigned cha
 
                 k = this_kernel->kmap_usb_to_ps2[RawKeys[i]];
                 static_event.key_keysym_sym = k;
-
                 static_event.type = SDL_KEYDOWN;
             }
             else

@@ -210,11 +210,6 @@ static uint32_t default_mmio_readb(uint32_t a)
     return -1;
 }
 
-#ifdef EMSCRIPTEN
-#undef SAVESTATE
-#define DISABLE_CONSTANT_SAVING
-#endif
-
 // XXX Very very bad hack to make timing work (see util.c)
 void util_state(void);
 
@@ -409,25 +404,11 @@ void pc_hlt_if_0(void)
 static int sync = 0;
 static uint64_t last = 0;
 
-#ifdef EMSCRIPTEN
-// Don't feel like wasting your time while waiting for HLT loops to complete? solution is below
-static int fast = 0;
-
-void pc_set_fast(int yes){
-    fast = yes;
-}
-#endif
 int pc_execute(void)
 {
     // This function is called repeatedly.
-    int frames = 10, cycles_to_run, cycles_run, exit_reason, devices_need_servicing = 0;
+    int frames = 0, cycles_to_run, cycles_run, exit_reason, devices_need_servicing = 0;
     itick_t now;
-
-#ifdef EMSCRIPTEN
-    uint64_t cur_now;
-    if (fast)
-        cur_now = cpu_get_cycles();
-#endif
 
     // Call the callback if needed, for async drive cases
     drive_check_complete();
@@ -447,52 +428,46 @@ int pc_execute(void)
     do {
         now = get_now();
         cycles_to_run = devices_get_next(now, &devices_need_servicing);
-// Run a number of cycles.
+
+        // Run a number of cycles.
 
 #if 0
         uint64_t before = get_now();
 #endif
         cycles_run = cpu_run(cycles_to_run);
-//LOG("PC", "Exited from loop (cycles to run: %d, extra: %d)\n", cycles_to_run, devices_need_servicing);
 #if 0
+        LOG("PC", "Exited from loop (cycles to run: %d, extra: %d)\n", cycles_to_run, devices_need_servicing);
         if ((before + cycles_run) != get_now()) {
-            printf("Before: %ld Ideal: %ld Current: %ld [diff: %ld] total insn should be run: %d dev need serv %d\n", before, cycles_run + before, get_now(), cycles_run + before - get_now(), cycles_run, devices_need_servicing);
+            LOG("PC", "Before: %ld Ideal: %ld Current: %ld [diff: %ld] total insn should be run: %d dev need serv %d\n", before, cycles_run + before, get_now(), cycles_run + before - get_now(), cycles_run, devices_need_servicing);
             //abort();
         }
 #endif
-        if ((exit_reason = cpu_get_exit_reason())) {
+
+        if ((exit_reason = cpu_get_exit_reason()))
+        {
             // We exited the loop because of a HLT instruction or an async function needs to be called.
             // Now skip forward a number of cycles, and determine how many ms we should sleep for
             int cycles_to_move_forward, wait_time, moveforward;
             cycles_to_move_forward = cycles_to_run - cycles_run;
 
-            if (exit_reason == EXIT_STATUS_HLT) {
+            if (exit_reason == EXIT_STATUS_HLT)
+            {
                 // The below line should prevent the browser version from locking up
-                if(!cpu_interrupts_masked()) return 0;
+                if(!cpu_interrupts_masked())
+                    return 0;
+
                 moveforward = devices_get_next(get_now(), NULL);
                 cycles_to_move_forward += moveforward;
             }
+
             add_now(cycles_to_move_forward);
             wait_time = (cycles_to_move_forward * 1000) / ticks_per_second;
-#ifdef EMSCRIPTEN
-            if (!fast) {
-                if (wait_time != 0)
-                    return wait_time;
-            }
-#else
-            if(wait_time != 0) return 0; // try to match with emscripten
+            if (wait_time != 0) return 0; // try to match with emscripten
             UNUSED(wait_time);
-#endif
             // Just continue since wait time is negligable
         }
-#ifdef EMSCRIPTEN
-        if (fast) {
-            if ((cpu_get_cycles() - cur_now) > 2000000)
-                return 0;
-            else
-                frames = -1;
-        }
-#endif
-    } while (frames--);
+    }
+    while (frames--);
+
     return 0;
 }

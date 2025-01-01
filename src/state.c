@@ -13,11 +13,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#ifdef EMSCRIPTEN
-#include <emscripten.h>
-#endif
-
-#if defined(_WIN32) && !defined(EMSCRIPTEN)
+#if defined(_WIN32)
 #define PATHSEP '\\'
 #define PATHSEP_STR "\\"
 #else
@@ -392,32 +388,19 @@ void state_file(int size, char* name, void* ptr)
     char temp[1000];
     sprintf(temp, "%s" PATHSEP_STR "%s", global_file_base, name);
     if (is_reading) {
-#ifndef EMSCRIPTEN
         int fd = open(temp, O_RDONLY | O_BINARY);
         if (fd == -1)
             STATE_FATAL("Unable to open file %s\n", temp);
         if (read(fd, ptr, size) != size)
             STATE_FATAL("Could not read\n");
         close(fd);
-#else
-        EM_ASM_({
-            window["loadFile"]($0, $1, $2);
-        }, temp, ptr, size);
-#endif
     } else {
-#ifndef EMSCRIPTEN
         int fd = open(temp, O_WRONLY | O_CREAT | O_BINARY | O_TRUNC, 0666);
         if (fd == -1)
             STATE_FATAL("Unable to create file %s\n", temp);
         if (write(fd, ptr, size) != size)
             STATE_FATAL("Could not write\n");
         close(fd);
-#else
-        EM_ASM_({
-            window["saveFile"]($0, $1, $2);
-        },
-            temp, ptr, size);
-#endif
     }
 }
 static char* normalize(char* a)
@@ -441,7 +424,6 @@ void state_read_from_file(char* fn)
     global_file_base = normalize(fn);
     sprintf(path, "%s" PATHSEP_STR "state.bin", fn);
 
-#ifndef EMSCRIPTEN
     int fd = open(path, O_RDONLY | O_BINARY);
     if (fd == -1)
         STATE_FATAL("Cannot open file %s\n", fn);
@@ -451,12 +433,6 @@ void state_read_from_file(char* fn)
     if (read(fd, buf, size) != size)
         STATE_FATAL("Cannot read from file %s\n", fn);
     close(fd);
-#else
-    void* buf = (void*)(EM_ASM_INT({
-        return window["loadFile2"]($0, $1, $2);
-    },
-        path, global_file_base));
-#endif
 
     struct rstream r;
     rstream_init(&r, buf);
@@ -497,36 +473,6 @@ void state_store_to_file(char* fn)
     free(global_file_base);
 }
 
-#ifdef EMSCRIPTEN
-// Store the state to a buffer
-void state_get_buffer(void)
-{
-    char* fn = "/";
-    char path[1000];
-    struct wstream w;
-    wstream_init(&w, 65536);
-    write32(&w, MAGIC);
-    write32(&w, VERSION);
-
-    is_reading = 0;
-    global_file_base = normalize(fn);
-    global_obj = state_create_bjson_object(64);
-    for (int i = 0; i < state_handler_count; i++)
-        state_handlers[i]();
-    bjson_serialize(&w, global_obj);
-
-    sprintf(path, "%s/state.bin", fn);
-    EM_ASM_({
-        window["saveFile"]($0, $1, $2);
-    },
-        path, w.buf, w.pos);
-    wstream_destroy(&w);
-    //ABORT();
-    bjson_destroy_object(global_obj);
-    free(global_file_base);
-}
-#endif
-
 char* state_get_path_base(void)
 {
     return global_file_base;
@@ -534,7 +480,6 @@ char* state_get_path_base(void)
 
 void state_mkdir(char* path)
 {
-#ifndef EMSCRIPTEN
 #ifdef _WIN32
     if (mkdir(path) == -1) {
 #else
@@ -543,9 +488,6 @@ void state_mkdir(char* path)
         if (errno != EEXIST)
             STATE_FATAL("Unable to make new directory %s\n", path);
     }
-#else
-    UNUSED(path);
-#endif
 }
 int state_is_reading(void)
 {

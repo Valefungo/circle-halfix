@@ -10,10 +10,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef EMSCRIPTEN
-#include <emscripten.h>
-#endif
-
 // Halfix entry point
 
 static struct pc_settings pc;
@@ -155,22 +151,31 @@ parse_config:
 #else
     // Good for real-world stuff
     while (1) {
-        SDL_Kernel_Log("A");
+
+        unsigned a, b, c, d, e;
+        SDL_wrapStartTimer();
+        a = SDL_wrapCheckTimerMs();
+
         int ms_to_sleep = pc_execute();
 
-        SDL_Kernel_Log("B");
+        b = SDL_wrapCheckTimerMs() - a;
+
         // Update our screen/devices here
         vga_update();
 
-        SDL_Kernel_Log("C");
+        c = SDL_wrapCheckTimerMs() - (a + b);
+
         display_handle_events();
         ms_to_sleep &= realtime;
 
-        SDL_Kernel_Log("D");
-        // ms_to_sleep is always zero here
+        d = SDL_wrapCheckTimerMs() - (a + b + c);
+
+        // ms_to_sleep is always zero here, this updates the USB status
         display_sleep(ms_to_sleep * 5);
 
-        SDL_Kernel_Log("E");
+        e = SDL_wrapCheckTimerMs() - (a + b + c + d);
+
+        // printf("Tim: %u - exec:%u -  vga:%u -  events:%u -  sleep:%u\n", a, b, c, d, e);
     }
 #endif
 }

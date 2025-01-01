@@ -623,14 +623,10 @@ OPTYPE op_int(struct decoded_instruction* i)
 OPTYPE op_into(struct decoded_instruction* i)
 {
 /*
- * VAL: non doveva essere qua
-#if 1
-#ifndef EMSCRIPTEN
-    // __asm__("int3");
-    NEXT2(i->flags);
-#endif
-#endif
+ * VAL: non doveva essere qua... forse
 */
+    NEXT2(i->flags);
+
     if (cpu_get_of()) {
         if (cpu_interrupt(4, 0, INTERRUPT_TYPE_SOFTWARE, VIRT_EIP() + i->flags))
             EXCEP();

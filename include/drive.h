@@ -4,9 +4,7 @@
 #include "state.h"
 #include <stdint.h>
 
-#ifndef EMSCRIPTEN
 #define ALLOW_64BIT_OFFSETS
-#endif
 
 #ifdef ALLOW_64BIT_OFFSETS
 typedef uint64_t drv_offset_t;
@@ -56,11 +54,7 @@ struct drive_info {
 
 void drive_state(struct drive_info* info, char* filename);
 
-#ifdef EMSCRIPTEN
-int drive_internal_init(struct drive_info* info, char* filename, void* info_dat, int);
-#else
 int drive_autodetect_type(char* path);
-#endif
 
 int drive_init(struct drive_info* info, char* path);
 

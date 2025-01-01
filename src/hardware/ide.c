@@ -1137,9 +1137,6 @@ static void ide_pio_write_callback(struct ide_controller* ctrl)
 
         uint64_t sector_offset = ide_get_sector_offset(ctrl, ctrl->lba48);
         IDE_LOG("Writing %d sectors at %llx\n", ctrl->sectors_read, (unsigned long long)sector_offset);
-#ifndef EMSCRIPTEN
-        printf("Writing %d sectors at %d\n", ctrl->sectors_read, (uint32_t)sector_offset);
-#endif
 
         int res = drive_write(SELECTED(ctrl, info), ctrl, ctrl->pio_buffer, ctrl->sectors_read * 512, sector_offset * (uint64_t)512, drive_write_callback);
         if (res == DRIVE_RESULT_SYNC)
@@ -1388,11 +1385,7 @@ static void ide_read_sectors(struct ide_controller* ctrl, int lba48, int chunk_c
         sectors_to_read = sector_count;
     ctrl->sectors_read = sectors_to_read;
 
-#ifdef EMSCRIPTEN
-    IDE_LOG("Reading %d sectors at %llx\n", sector_count, sector_offset);
-#else
     IDE_LOG("Reading %d sectors at %x\n", sector_count, (uint32_t)sector_offset);
-#endif
     if (sector_offset > 0xFFFFFFFF)
         IDE_LOG("Big sector!!\n");
     int res = drive_read(SELECTED(ctrl, info), ctrl, ctrl->pio_buffer, sectors_to_read * 512, sector_offset * (uint64_t)512, ide_read_sectors_callback);

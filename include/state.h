@@ -59,11 +59,4 @@ char* state_get_path_base(void);
 
 #define FIELD(y) state_field(obj, sizeof(y), #y, &y)
 
-
-#ifdef EMSCRIPTEN
-#define DISABLE_CONSTANT_SAVING
-#undef SAVESTATE
-#define DISABLE_RESTORE
-#endif
-
 #endif

@@ -11,9 +11,6 @@
 #ifdef _WIN32
 #define EXPORT __declspec(dllexport)
 #define IMPORT __declspec(dllimport)
-#elif defined(EMSCRIPTEN)
-#include <emscripten.h>
-#define EXPORT EMSCRIPTEN_KEEPALIVE
 #else
 #define EXPORT __attribute__((visibility("default")))
 #define IMPORT __attribute__((visibility("default")))

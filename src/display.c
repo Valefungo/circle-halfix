@@ -116,10 +116,6 @@ void display_release_mouse(void)
 
 #define KEYMOD_INVALID -1
 
-static int sdl_keysym_to_scancode(int sym)
-{
-    return sym;
-}
 static inline void display_kbd_send_key(int k)
 {
     if (k == KEYMOD_INVALID)
@@ -131,8 +127,36 @@ static inline void display_kbd_send_key(int k)
 // XXX: work around a SDL bug?
 static inline void send_keymod_scancode(int k, int or)
 {
+    /*
+    kmap_usb_to_ps2[0xE0]=0x001D; // Left Control
+    kmap_usb_to_ps2[0xE1]=0x002A; // Left Shift
+    kmap_usb_to_ps2[0xE2]=0x0038; // Left Alt
+    kmap_usb_to_ps2[0xE3]=0xE05B; // Left GUI
+    kmap_usb_to_ps2[0xE4]=0xE01D; // Right Control
+    kmap_usb_to_ps2[0xE5]=0x0036; // Right Shift
+    kmap_usb_to_ps2[0xE6]=0xE038; // Right Alt
+    kmap_usb_to_ps2[0xE7]=0xE05C; // Right GUI
     if (k & KMOD_ALT) {
         display_kbd_send_key(0xE038 | or);
+    }
+    */
+    if (k & KMOD_LALT) {
+        display_kbd_send_key(0x0038 | or);
+    }
+    if (k & KMOD_RALT) {
+        display_kbd_send_key(0xE038 | or);
+    }
+    if (k & KMOD_LCTRL) {
+        display_kbd_send_key(0x001D | or);
+    }
+    if (k & KMOD_RCTRL) {
+        display_kbd_send_key(0xE01D | or);
+    }
+    if (k & KMOD_LSHIFT) {
+        display_kbd_send_key(0x002A | or);
+    }
+    if (k & KMOD_RSHIFT) {
+        display_kbd_send_key(0x0036 | or);
     }
 }
 
@@ -142,11 +166,20 @@ void display_handle_events(void)
     int k;
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
-        case SDL_KEYDOWN: {
-            //printf("KeyDown\n");
-            display_set_title();
+        case SDL_MOD_KEYDOWN: {
             send_keymod_scancode(event.key_keysym_mod, 0);
-            display_kbd_send_key(sdl_keysym_to_scancode(event.key_keysym_sym));
+            break;
+        }
+        case SDL_MOD_KEYUP: {
+            send_keymod_scancode(event.key_keysym_mod, 0x80);
+            break;
+        }
+        case SDL_KEYDOWN: {
+            display_kbd_send_key(event.key_keysym_sym);
+            break;
+        }
+        case SDL_KEYUP: {
+            display_kbd_send_key(event.key_keysym_sym | 0x80);
             break;
         }
         case SDL_MOUSEBUTTONDOWN:
@@ -173,13 +206,6 @@ void display_handle_events(void)
             // if (input_captured)
             // it is always captured
             kbd_send_mouse_move(event.motion_xrel, event.motion_yrel);
-            break;
-        }
-        case SDL_KEYUP: {
-            //printf("KeyUp\n");
-            int c = sdl_keysym_to_scancode(event.key_keysym_sym);
-            send_keymod_scancode(event.key_keysym_mod, 0x80);
-            display_kbd_send_key(c | 0x80);
             break;
         }
         }

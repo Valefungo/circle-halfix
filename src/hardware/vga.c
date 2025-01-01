@@ -331,12 +331,7 @@ static uint8_t c6to8(uint8_t a)
 static void update_one_dac_entry(int i)
 {
     int index = i << 2;
-#ifndef EMSCRIPTEN
     vga.dac_palette[i] = 255 << 24 | c6to8(vga.dac[index | 0]) << 16 | c6to8(vga.dac[index | 1]) << 8 | c6to8(vga.dac[index | 2]);
-#else
-    // Reverse order of palette
-    vga.dac_palette[i] = 255 << 24 | c6to8(vga.dac[index | 2]) << 16 | c6to8(vga.dac[index | 1]) << 8 | c6to8(vga.dac[index | 0]);
-#endif
 }
 static void update_all_dac_entries(void)
 {
@@ -1167,13 +1162,7 @@ void vga_update(void)
                     if (!vga.vbe_scanlines_modified[vga.current_scanline])
                         break;
                     for (unsigned int i = 0; i < vga.total_width; i++, vram_addr += 4) {
-#ifndef EMSCRIPTEN
                         vga.framebuffer[fboffset++] = *((uint32_t*)&vga.vram[vram_addr]) | 0xFF000000;
-#else
-                        uint32_t num = *((uint32_t*)&vga.vram[vram_addr]);
-                        // Byte-swap framebuffer for easy ImageData blitting
-                        vga.framebuffer[fboffset++] = (num >> 16 & 0xFF) | (num << 16 & 0xFF0000) | (num & 0xFF00) | 0xFF000000;
-#endif
                     }
                     vga.vbe_scanlines_modified[vga.current_scanline] = 0;
                     break;
@@ -1193,11 +1182,7 @@ void vga_update(void)
                         int red = word >> 11 << 3,
                             green = (word >> 5 & 63) << 2, // Note: 6 bits for green
                             blue = (word & 31) << 3;
-#ifndef EMSCRIPTEN
                         vga.framebuffer[fboffset++] = red << 16 | green << 8 | blue << 0 | 0xFF000000;
-#else
-                        vga.framebuffer[fboffset++] = red << 0 | green << 8 | blue << 16 | 0xFF000000;
-#endif
                     }
 
                     vga.vbe_scanlines_modified[vga.current_scanline] = 0;
@@ -1209,11 +1194,7 @@ void vga_update(void)
                         uint8_t blue = vga.vram[vram_addr],
                                 green = vga.vram[vram_addr + 1],
                                 red = vga.vram[vram_addr + 2];
-#ifndef EMSCRIPTEN
                         vga.framebuffer[fboffset++] = (blue) | (green << 8) | (red << 16) | 0xFF000000;
-#else
-                        vga.framebuffer[fboffset++] = (blue << 16) | (green << 8) | (red) | 0xFF000000;
-#endif
                     }
                     vga.vbe_scanlines_modified[vga.current_scanline] = 0;
                     break;

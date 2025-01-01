@@ -31,15 +31,44 @@
 
 class CKernel : public CStdlibAppStdio
 {
+private:
+        enum TTextAlign
+        {
+                AlignLeft,
+                AlignRight,
+                AlignCenter
+        };
+
+        CCharGenerator m_Font;
+
 public:
     CKernel (void);
     virtual bool Initialize(void);
 
     void Pause(char *m);
     void MsPause(int ms);
+    void StartTimer();
+    unsigned CheckTimer();
+    unsigned CheckTimerMs();
 
-    C2DGraphics *screen2d;
     unsigned short kmap_usb_to_ps2[256];
+
+    void DrawColorRect (unsigned nX, unsigned nY, unsigned nWidth, unsigned nHeight, TScreenColor Color,
+                        unsigned nTargetWidth, unsigned nTargetHeight, TScreenColor *targetPixelBuffer);
+    void DrawColorRect (unsigned nX, unsigned nY, unsigned nWidth, unsigned nHeight, TScreenColor Color);
+    void DrawImageRect (unsigned nX, unsigned nY, unsigned nWidth, unsigned nHeight,
+                        unsigned nSourceX, unsigned nSourceY, TScreenColor *sourcePixelBuffer,
+                        unsigned nTargetWidth, unsigned nTargetHeight, TScreenColor *targetPixelBuffer);
+    void DrawImageRect (unsigned nX, unsigned nY, unsigned nWidth, unsigned nHeight,
+                        unsigned nSourceX, unsigned nSourceY, TScreenColor *sourcePixelBuffer);
+    void DrawText (unsigned nX, unsigned nY, TScreenColor Color, const char *pText, TTextAlign Align,
+                   unsigned nTargetWidth, unsigned nTargetHeight, TScreenColor *targetPixelBuffer);
+    void DrawText (unsigned nX, unsigned nY, TScreenColor Color, const char *pText, TTextAlign Align);
+
+    void wrapUpdateDisplay();
+    void wrapClearScreen(TScreenColor color);
+    void wrapDrawImage(unsigned nX, unsigned nY, unsigned nWidth, unsigned nHeight, TScreenColor *sourcePixelBuffer);
+    void wrapResize(unsigned nWidth, unsigned nHeight);
 
     CUSBKeyboardDevice * volatile m_pre_pKeyboard;
     CUSBKeyboardDevice * volatile m_pKeyboard;
@@ -58,8 +87,6 @@ public:
     static void MouseRemovedHandler (CDevice *pDevice, void *pContext);
 
     TShutdownMode Run (void);
-
-private:
 
 };
 
