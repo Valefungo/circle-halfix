@@ -29,7 +29,7 @@
 #include "noSDL_keysym.h"
 #include "png.h"
 
-#define TRUE_RASPI_4
+#undef TRUE_RASPI_4
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,6 +43,15 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
+
+// #define LOGG_C(...) printf(__VA_ARGS__)
+// #define LOGG_K(...) printf(__VA_ARGS__)
+
+#define LOGG_C(...) 
+#define LOGG_K(...) 
+
+// #define LOGG_C(...) this_kernel->p_mLogger->Write (this_kernel->GetKernelName(), LogNotice, __VA_ARGS__)
+// #define LOGG_K(...) this_kernel->mLogger.Write (this_kernel->GetKernelName(), LogNotice, __VA_ARGS__)
 
 static CKernel *this_kernel;
 static int do_screenshot=0;
@@ -150,6 +159,12 @@ SDL_GrabMode SDL_WM_GrabInput(SDL_GrabMode mode)
     return mode;
 }
 
+void SDL_Kernel_Log(const char *line)
+{
+    // easy logging
+    LOGG_C( "KLOG %s", line);
+}
+
 SDL_Event static_event;
 SDL_Event static_mouse_event;
 int lastmousex=0;
@@ -159,7 +174,7 @@ int SDL_PollEvent(SDL_Event *event)
 {
     if (static_event.type != 0)
     {
-        this_kernel->p_mLogger->Write (this_kernel->GetKernelName(), LogNotice, "KPOLL %d %04X %02X\n", static_event.type, static_event.key_keysym_sym, static_event.key_keysym_mod);
+        LOGG_C( "KPOLL %d %04X %02X", static_event.type, static_event.key_keysym_sym, static_event.key_keysym_mod);
 
         memcpy(event, &static_event, sizeof(SDL_Event));
         static_event.type = 0;
@@ -168,7 +183,7 @@ int SDL_PollEvent(SDL_Event *event)
 
     if (static_mouse_event.type != 0)
     {
-        this_kernel->p_mLogger->Write (this_kernel->GetKernelName(), LogNotice, "MPOLL %d x%d y%d\n", static_mouse_event.type, static_mouse_event.motion_xrel, static_mouse_event.motion_yrel);
+        LOGG_C( "MPOLL %d x%d y%d\n", static_mouse_event.type, static_mouse_event.motion_xrel, static_mouse_event.motion_yrel);
 
         memcpy(event, &static_mouse_event, sizeof(SDL_Event));
         static_mouse_event.type = 0;
@@ -185,16 +200,16 @@ void SDL_FreeSurface(SDL_Surface *surface)
 
 int SDL_Flip(SDL_Surface *screen)
 {
+    LOGG_C( "SDL_Flip IN  %d, %d", screen->w, screen->h);
     this_kernel->screen2d->UpdateDisplay();
-
-    this_kernel->UpdateKeyboardAndMouse();
+    LOGG_C( "SDL_Flip OUT %d, %d", screen->w, screen->h);
     return 0;
 }
 
 int SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst, SDL_Rect *dstrect)
 {
-    // this_kernel->p_mLogger.Write (GetKernelName(), LogNotice, "SDL_BlitSurface SRC %d %d %d, %d   DST %d %d %d %d\n", srcrect->x, srcrect->y, srcrect->w, srcrect->h, dstrect->x, dstrect->y, dstrect->w, dstrect->h);
-    // this_kernel->p_mLogger.Write (GetKernelName(), LogNotice, "SDL_BlitSurface %d, %d\n", src->w, src->h);
+    // LOG_C( "SDL_BlitSurface SRC %d %d %d, %d   DST %d %d %d %d\n", srcrect->x, srcrect->y, srcrect->w, srcrect->h, dstrect->x, dstrect->y, dstrect->w, dstrect->h);
+    // LOG_C( "SDL_BlitSurface %d, %d\n", src->w, src->h);
 
 #ifdef TRUE_RASPI_4
     // no, let it stay dirty to be able to see any log
@@ -205,7 +220,7 @@ int SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst, SDL_R
     TScreenColor *scr = (TScreenColor *)src->pixels;
 
     // emulated raspi 3
-    this_kernel->screen2d->ClearScreen(BLACK_COLOR);
+    // this_kernel->screen2d->ClearScreen(BLACK_COLOR);
 
     TScreenColor pix[src->w * src->h];
     unsigned int temp;
@@ -241,7 +256,7 @@ SDL_Surface * SDL_SetVideoMode(int width, int height, int bpp, Uint32 flags)
 { 
     virtual_screen_width = width;
     virtual_screen_height = height;
-    // this_kernel->p_mLogger.Write (GetKernelName(), LogNotice, "SDL_SetVideoMode %d, %d, %d, %d\n", width, height, bpp, DEPTH);
+    // LOG_C( "SDL_SetVideoMode %d, %d, %d, %d\n", width, height, bpp, DEPTH);
 
 //    if (height != 0)
 //        this_kernel->screen2d->Resize(width, height);
@@ -256,7 +271,7 @@ SDL_Surface * SDL_SetVideoMode(int width, int height, int bpp, Uint32 flags)
 
 SDL_Surface * SDL_CreateRGBSurfaceFrom(void *pixels, int width, int height, int depth, int pitch, Uint32 Rmask, Uint32 Gmask, Uint32 Bmask, Uint32 Amask)
 {
-    // this_kernel->p_mLogger.Write (GetKernelName(), LogNotice, "SDL_CreateRGBSurfaceFrom %d, %d, %d, %d\n", width, height, depth, pitch);
+    // LOG_C( "SDL_CreateRGBSurfaceFrom %d, %d, %d, %d\n", width, height, depth, pitch);
 
     SDL_Surface *su = (SDL_Surface *)malloc(sizeof(SDL_Surface));
     su->w = width;
@@ -282,13 +297,13 @@ void CKernel::MsPause(int ms)
 
 void CKernel::Pause(char *m)
 {
-    mLogger.Write (GetKernelName(), LogNotice, "Pause: %s... Type some characters and hit <RETURN>", m);
+    LOGG_K( "Pause: %s... Type some characters and hit <RETURN>", m);
 
     /* * /
     char line[200];
     if (fgets(line, sizeof(line), stdin) != nullptr)
     {
-    	mLogger.Write (GetKernelName(), LogNotice, "Read '%s' from stdin...", line);
+    	LOGG_K( "Read '%s' from stdin...", line);
     }
     else
     {
@@ -450,8 +465,8 @@ bool CKernel::Initialize(void)
 
 CStdlibApp::TShutdownMode CKernel::Run (void)
 {
-    mLogger.Write (GetKernelName(), LogNotice, "Circle-Halfix");
-    mLogger.Write (GetKernelName(), LogNotice, "Compile time: " __DATE__ " " __TIME__);
+    LOGG_K( "Circle-Halfix");
+    LOGG_K( "Compile time: " __DATE__ " " __TIME__);
 
     Pause((char *)"do-run");
 
@@ -460,7 +475,7 @@ CStdlibApp::TShutdownMode CKernel::Run (void)
     // int retval = 0;
 
     // if everything goes well, we'll never reach this point
-    mLogger.Write (GetKernelName(), LogNotice, "Shutting down because of %d...", retval);
+    LOGG_K( "Shutting down because of %d...", retval);
     return ShutdownHalt;
 }
 
@@ -470,7 +485,7 @@ void CKernel::UpdateKeyboardAndMouse()
     m_pKeyboard = (CUSBKeyboardDevice *) mDeviceNameService.GetDevice ("ukbd1", FALSE);
     m_pMouse = (CMouseDevice *) mDeviceNameService.GetDevice ("mouse1", FALSE);
 
-    this_kernel->mLogger.Write (this_kernel->GetKernelName(), LogNotice, "Update K&M: %d k %08X %08X m %08X %08X", bUpdated, m_pKeyboard, m_pre_pKeyboard, m_pMouse, m_pre_pMouse);
+    LOGG_K( "Update K&M: %d k %08X %08X m %08X %08X", bUpdated, m_pKeyboard, m_pre_pKeyboard, m_pMouse, m_pre_pMouse);
 
     if (m_pKeyboard != m_pre_pKeyboard)
     {
@@ -495,12 +510,12 @@ void CKernel::UpdateKeyboardAndMouse()
         {
             m_pMouse->RegisterRemovedHandler (MouseRemovedHandler);
 
-            mLogger.Write (GetKernelName(), LogNotice, "USB mouse has %d buttons and %s wheel", m_pMouse->GetButtonCount(), m_pMouse->HasWheel() ? "a" : "no");
+            LOGG_K( "USB mouse has %d buttons and %s wheel", m_pMouse->GetButtonCount(), m_pMouse->HasWheel() ? "a" : "no");
 
             m_pMouse->Release();
             if (!m_pMouse->Setup (virtual_screen_width, virtual_screen_height))
             {
-                mLogger.Write (GetKernelName(), LogPanic, "Cannot setup mouse");
+                LOGG_K( "Cannot setup mouse");
             }
 
             m_pMouse->SetCursor (0, 0);
@@ -569,14 +584,14 @@ void CKernel::KeyStatusHandlerRaw (unsigned char ucModifiers, const unsigned cha
             }
         }
 
-        this_kernel->mLogger.Write (this_kernel->GetKernelName(), LogNotice, Message);
+        LOGG_K( Message);
 */
 }
 
 void CKernel::KeyboardRemovedHandler (CDevice *pDevice, void *pContext)
 {
     assert (this_kernel != 0);
-    this_kernel->mLogger.Write (this_kernel->GetKernelName(), LogNotice, "Keyboard removed");
+    LOGG_K( "Keyboard removed");
 
     this_kernel->m_pKeyboard = 0;
 }
@@ -595,13 +610,8 @@ void CKernel::MouseEventHandler (TMouseEvent Event, unsigned nButtons, unsigned 
                 static_mouse_event.type = SDL_MOUSEMOTION;
 
                 // nPos are absolute positions, we need them relative.
-#ifdef TRUE_RASPI_4
                 static_mouse_event.motion_xrel = nPosX;
                 static_mouse_event.motion_yrel = nPosY;
-#else
-                static_mouse_event.motion_xrel = lastmousex - nPosX;
-                static_mouse_event.motion_yrel = lastmousey - nPosY;
-#endif
 
                 lastmousex = nPosX;
                 lastmousey = nPosY;
@@ -636,7 +646,7 @@ void CKernel::MouseEventHandler (TMouseEvent Event, unsigned nButtons, unsigned 
 void CKernel::MouseRemovedHandler (CDevice *pDevice, void *pContext)
 {
     assert (this_kernel != 0);
-    this_kernel->mLogger.Write (this_kernel->GetKernelName(), LogNotice, "Mouse removed");
+    LOGG_K( "Mouse removed");
 
     this_kernel->m_pMouse = 0;
 }

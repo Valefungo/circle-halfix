@@ -5,6 +5,7 @@
 #include "pc.h"
 #include "platform.h"
 #include "util.h"
+#include "noSDL.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -154,14 +155,22 @@ parse_config:
 #else
     // Good for real-world stuff
     while (1) {
+        SDL_Kernel_Log("A");
         int ms_to_sleep = pc_execute();
+
+        SDL_Kernel_Log("B");
         // Update our screen/devices here
         vga_update();
+
+        SDL_Kernel_Log("C");
         display_handle_events();
         ms_to_sleep &= realtime;
-        if (ms_to_sleep)
-            display_sleep(ms_to_sleep * 5);
-        //display_sleep(5);
+
+        SDL_Kernel_Log("D");
+        // ms_to_sleep is always zero here
+        display_sleep(ms_to_sleep * 5);
+
+        SDL_Kernel_Log("E");
     }
 #endif
 }

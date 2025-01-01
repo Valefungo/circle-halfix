@@ -130,16 +130,7 @@ void add_now(itick_t a)
 
 void util_debug(void)
 {
-    display_release_mouse();
-#ifndef EMSCRIPTEN
-    // __asm__("int3");
-#else
-    printf("Breakpoint reached -- aborting\n");
-    abort();
-#endif
 }
 void util_abort(void)
 {
-    display_release_mouse();
-    abort();
 }

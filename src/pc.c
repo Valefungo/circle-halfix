@@ -5,6 +5,7 @@
 #include "io.h"
 #include "state.h"
 #include "util.h"
+#include "noSDL.h"
 
 // Comment below line to disable automatic loading of savestate
 //#define SAVESTATE
@@ -168,7 +169,7 @@ static void bios_writeb(uint32_t port, uint32_t data)
         if (bios_ptr[id] == 100 || data == '\n') {
             bios_data[id][bios_ptr[id]] = 0;
             /* fprintf(stderr, "%sBIOS says: '%s'\n", id ? "VGA" : "", bios_data[id]); */
-            printf("%sBIOS says: %s", id ? "VGA" : "", bios_data[id]);
+            // printf("%sBIOS says: %s", id ? "VGA" : "", bios_data[id]);
             bios_ptr[id] = 0;
         }
         break;

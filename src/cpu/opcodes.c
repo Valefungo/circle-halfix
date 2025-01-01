@@ -183,8 +183,10 @@ void cpu_execute(void)
 OPTYPE op_fatal_error(struct decoded_instruction* i)
 {
     CPU_LOG("The CPU decoder encountered an internal fatal error while translating code\n");
+    // we cannot "exit" in a bare-metal environment
     // exit(0);
     UNUSED(i);
+    EXCEP(); // Don't call instrumentation callbacks since there's no instruction being executed here.
 }
 OPTYPE op_ud_exception(struct decoded_instruction* i)
 {
@@ -194,7 +196,6 @@ OPTYPE op_ud_exception(struct decoded_instruction* i)
 OPTYPE op_trace_end(struct decoded_instruction* i)
 {
     UNUSED(i);
-    //cpu.cycles_to_run++;
     EXCEP(); // Don't call instrumentation callbacks since there's no instruction being executed here.
 }
 

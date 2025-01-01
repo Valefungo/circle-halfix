@@ -72,6 +72,7 @@ SDL_Surface * SDL_CreateRGBSurfaceFrom(void *pixels, int width, int height, int 
 void SDL_WM_SetCaption(const char *title, const char *icon);
 SDL_GrabMode SDL_WM_GrabInput(SDL_GrabMode mode);
 
+void SDL_Kernel_Log(const char *line);
 
 #ifdef __cplusplus
 }

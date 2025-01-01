@@ -554,7 +554,8 @@ BX_CPP_INLINE floatx80 packFloatx80(int zSign, int32_t zExp, uint64_t zSig)
 
 BX_CPP_INLINE int floatx80_is_nan(floatx80 a)
 {
-    return ((a.exp & 0x7FFF) == 0x7FFF) && (int64_t) (a.fraction<<1);
+    // return ((a.exp & 0x7FFF) == 0x7FFF) && (int64_t) (a.fraction<<1);
+    return ((a.exp & 0x7FFF) == 0x7FFF) && (((int64_t) (a.fraction<<1)) != 0);
 }
 
 /*----------------------------------------------------------------------------

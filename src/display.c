@@ -18,20 +18,25 @@ static SDL_Surface* surface = NULL;
 static SDL_Surface* screen = NULL;
 static void* surface_pixels;
 
+static int h, w;
+static int mouse_enabled = SDL_TRUE;
+static int input_captured = SDL_TRUE;
+static int mhz_rating = -1;
+
 void* display_get_pixels(void)
 {
     return surface_pixels;
 }
 
-static int h, w, mouse_enabled = 0, mhz_rating = -1;
-
 static void display_set_title(void)
 {
+    /*
     char buffer[1000];
     UNUSED(mhz_rating);
     sprintf(buffer, "Halfix x86 Emulator - [%d x %d] - %s", w, h,
         mouse_enabled ? "Press ESC to release mouse" : "Right-click to capture mouse");
     SDL_WM_SetCaption(buffer, "Halfix");
+    */
 }
 
 void display_update_cycles(int cycles_elapsed, int us)
@@ -95,7 +100,6 @@ void display_update(int scanline_start, int scanlines)
     }
 }
 
-static int input_captured = 0;
 static void display_mouse_capture_update(int y)
 {
     input_captured = y;
@@ -166,8 +170,9 @@ void display_handle_events(void)
             break;
         }
         case SDL_MOUSEMOTION: {
-            if (input_captured)
-                kbd_send_mouse_move(event.motion_xrel, event.motion_yrel);
+            // if (input_captured)
+            // it is always captured
+            kbd_send_mouse_move(event.motion_xrel, event.motion_yrel);
             break;
         }
         case SDL_KEYUP: {
