@@ -24,12 +24,15 @@
 #include <math.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "noSDL.h"
 #include "noSDL_keysym.h"
 #include "png.h"
 
-#undef TRUE_RASPI_4
+#define TRUE_RASPI_4
 
 #ifdef __cplusplus
 extern "C" {
@@ -165,40 +168,46 @@ void SDL_Kernel_Log(const char *line)
     LOGG_C( "KLOG %s", line);
 }
 
-SDL_Event static_event;
-SDL_Event static_mod_event;
+SDL_Event static_event[6];
+SDL_Event static_mod_event[8];
 SDL_Event static_mouse_event;
 int lastmousex=0;
 int lastmousey=0;
 
-void addModDown(int mod)
+void addModDown(int slot, int mod)
 {
-    static_mod_event.type = SDL_MOD_KEYDOWN;
-    static_mod_event.key_keysym_mod = mod;
+    static_mod_event[slot].type = SDL_MOD_KEYDOWN;
+    static_mod_event[slot].key_keysym_mod = mod;
 }
 
-void addModUp(int mod)
+void addModUp(int slot, int mod)
 {
-    static_mod_event.type = SDL_MOD_KEYUP;
-    static_mod_event.key_keysym_mod = mod;
+    static_mod_event[slot].type = SDL_MOD_KEYUP;
+    static_mod_event[slot].key_keysym_mod = mod;
 }
 
 int SDL_PollEvent(SDL_Event *event)
 {
-    if (static_mod_event.type != 0)
+    for (int i=0; i<8; i++)
     {
-        memcpy(event, &static_mod_event, sizeof(SDL_Event));
-        static_mod_event.type = 0;
-        return SDL_TRUE;
+        if (static_mod_event[i].type != 0)
+        {
+            memcpy(event, &static_mod_event[i], sizeof(SDL_Event));
+            static_mod_event[i].type = 0;
+            return SDL_TRUE;
+        }
     }
 
-    if (static_event.type != 0)
+    for (int i=0; i<6; i++)
     {
-        // LOGG_C( "KPOLL %d %04X %02X", static_event.type, static_event.key_keysym_sym, static_event.key_keysym_mod);
+        if (static_event[i].type != 0)
+        {
+            // LOGG_C( "KPOLL[%d] %d %04X %02X", i, static_event[i].type, static_event[i].key_keysym_sym, static_event[i].key_keysym_mod);
 
-        memcpy(event, &static_event, sizeof(SDL_Event));
-        static_event.type = 0;
-        return SDL_TRUE;
+            memcpy(event, &(static_event[i]), sizeof(SDL_Event));
+            static_event[i].type = 0;
+            return SDL_TRUE;
+        }
     }
 
     if (static_mouse_event.type != 0)
@@ -260,11 +269,19 @@ int SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst, SDL_R
 
     if (do_screenshot)
     {
-        screenshot_count++;
-
         char fn[200] = "";
-        sprintf(fn, "screenblit%d.png", screenshot_count);
-        screenshot(fn, (TScreenColor *)src->pixels, src->w, src->h);
+        struct stat sb;
+
+        while (screenshot_count < 10000)
+        {
+            sprintf(fn, "screenshot-%04d.png", screenshot_count);
+            if (stat(fn, &sb) == -1) {
+                screenshot(fn, (TScreenColor *)src->pixels, src->w, src->h);
+                break;
+            }
+            else
+                screenshot_count++;
+        }
 
         do_screenshot = 0;
     }
@@ -484,16 +501,12 @@ void CKernel::wrapResize(unsigned nWidth, unsigned nHeight)
 
 bool CKernel::Initialize(void)
 {
-    Pause((char *)"ini-init");
-
     bool r = CStdlibAppStdio::Initialize();
-
-    Pause((char *)"pre-init");
 
 #ifdef TRUE_RASPI_4
     mScreen.Resize(1920, 1080);
 #else
-
+    // leave whatever QEMU screen is defined on the command line
 #endif
 
     // https://stackoverflow.com/questions/69558563/how-to-convert-between-keyboard-scan-code-and-usb-keyboard-usage-index
@@ -704,22 +717,42 @@ void CKernel::UpdateKeyboardAndMouse()
 static unsigned keycount;
 static unsigned char lc=0, ls=0, la=0, lw=0;
 static unsigned char rc=0, rs=0, ra=0, rw=0;
+static unsigned char lastRawKeys[6] = {0,0,0,0,0,0};
+static unsigned moucount;
+
+static inline int findInLastRawKeys(unsigned char c, const unsigned char *a)
+{
+    for (int i=0; i<6; i++)
+        if (a[i] == c)
+            return i;
+
+    return -1;
+}
+
+static inline int addToLastRawKeys(unsigned char c, unsigned char *a)
+{
+    for (int i=0; i<6; i++)
+        if (a[i] == 0)
+        {
+            a[i] = c;
+            return i;
+        }
+
+    return -1;
+}
 
 void CKernel::KeyStatusHandlerRaw (unsigned char ucModifiers, const unsigned char RawKeys[6])
 {
-        unsigned int sdlmods = 0;
+        if (ucModifiers & LCTRL)    { if (lc == 0) addModDown(0, KMOD_LCTRL);  lc=1; } else { if (lc == 1) addModUp(0, KMOD_LCTRL);   lc=0; }
+        if (ucModifiers & LSHIFT)   { if (ls == 0) addModDown(1, KMOD_LSHIFT); ls=1; } else { if (ls == 1) addModUp(1, KMOD_LSHIFT);  ls=0; }
+        if (ucModifiers & ALT)      { if (la == 0) addModDown(2, KMOD_LALT);   la=1; } else { if (la == 1) addModUp(2, KMOD_LALT);    la=0; }
+        if (ucModifiers & LWIN)     { if (lw == 0) addModDown(3, KMOD_LMETA);  lw=1; } else { if (lw == 1) addModUp(3, KMOD_LMETA);   lw=0; }
+        if (ucModifiers & RCTRL)    { if (rc == 0) addModDown(4, KMOD_RCTRL);  rc=1; } else { if (rc == 1) addModUp(4, KMOD_RCTRL);   rc=0; }
+        if (ucModifiers & RSHIFT)   { if (rs == 0) addModDown(5, KMOD_RSHIFT); rs=1; } else { if (rs == 1) addModUp(5, KMOD_RSHIFT);  rs=0; }
+        if (ucModifiers & ALTGR)    { if (ra == 0) addModDown(6, KMOD_RALT);   ra=1; } else { if (ra == 1) addModUp(6, KMOD_RALT);    ra=0; }
+        if (ucModifiers & RWIN)     { if (rw == 0) addModDown(7, KMOD_RMETA);  rw=1; } else { if (rw == 1) addModUp(7, KMOD_RMETA);   rw=0; }
 
-        if (ucModifiers & LCTRL)    { sdlmods += KMOD_LCTRL;  if (lc == 0) addModDown(KMOD_LCTRL);  lc=1; } else { if (lc == 1) addModUp(KMOD_LCTRL);   lc=0; }
-        if (ucModifiers & LSHIFT)   { sdlmods += KMOD_LSHIFT; if (ls == 0) addModDown(KMOD_LSHIFT); ls=1; } else { if (ls == 1) addModUp(KMOD_LSHIFT);  ls=0; }
-        if (ucModifiers & ALT)      { sdlmods += KMOD_LALT;   if (la == 0) addModDown(KMOD_LALT);   la=1; } else { if (la == 1) addModUp(KMOD_LALT);    la=0; }
-        if (ucModifiers & LWIN)     { sdlmods += KMOD_LMETA;  if (lw == 0) addModDown(KMOD_LMETA);  lw=1; } else { if (lw == 1) addModUp(KMOD_LMETA);   lw=0; }
-        if (ucModifiers & RCTRL)    { sdlmods += KMOD_RCTRL;  if (rc == 0) addModDown(KMOD_RCTRL);  rc=1; } else { if (rc == 1) addModUp(KMOD_RCTRL);   rc=0; }
-        if (ucModifiers & RSHIFT)   { sdlmods += KMOD_RSHIFT; if (rs == 0) addModDown(KMOD_RSHIFT); rs=1; } else { if (rs == 1) addModUp(KMOD_RSHIFT);  rs=0; }
-        if (ucModifiers & ALTGR)    { sdlmods += KMOD_RALT;   if (ra == 0) addModDown(KMOD_RALT);   ra=1; } else { if (ra == 1) addModUp(KMOD_RALT);    ra=0; }
-        if (ucModifiers & RWIN)     { sdlmods += KMOD_RMETA;  if (rw == 0) addModDown(KMOD_RMETA);  rw=1; } else { if (rw == 1) addModUp(KMOD_RMETA);   rw=0; }
-
-        static_event.key_keysym_mod = sdlmods;
-
+        // DEBUG ON SCREEN DRAW
         char deb[200] = "";
         keycount++;
         sprintf(deb, "%06d -- %c%c%c%c     %02X %02X %02X %02X %02X %02X       %c%c%c%c --",
@@ -729,44 +762,42 @@ void CKernel::KeyStatusHandlerRaw (unsigned char ucModifiers, const unsigned cha
                 (rc?'C':' '), (rs?'S':' '), (ra?'A':' '), (rw?'W':' ')
                 );
         this_kernel->DrawColorRect (20, 700, 800, 16, BLACK_COLOR);
-
         this_kernel->DrawText (20, 700, BRIGHT_WHITE_COLOR, deb, TTextAlign::AlignLeft);
 
-        u16 k = 0;
-
-        // only one of the six overlapping keys
-        for (unsigned i = 0; i < 1; i++)
-        {
-            if (RawKeys[i] != 0)
-            {
-                // RawKeys are USB scancodes, we need to forward PS2 scancodes
-                // static_event.key_keysym_sym = RawKeys[i];
-
-                k = this_kernel->kmap_usb_to_ps2[RawKeys[i]];
-                static_event.key_keysym_sym = k;
-                static_event.type = SDL_KEYDOWN;
-            }
-            else
-            {
-                static_event.type = SDL_KEYUP;
-            }
-        }
-/*
-        CString Message;
-        Message.Format ("Key status (modifiers %02X, k %04X)", (unsigned) ucModifiers, k);
-
+        // check if a key has appeared or disappeared
         for (unsigned i = 0; i < 6; i++)
         {
             if (RawKeys[i] != 0)
             {
-                CString KeyCode;
-                KeyCode.Format (" %02X", (unsigned) RawKeys[i]);
-                Message.Append (KeyCode);
+                // a new one
+                if (findInLastRawKeys(RawKeys[i], lastRawKeys) == -1)
+                {
+                    if (addToLastRawKeys(RawKeys[i], lastRawKeys) != -1)
+                    {
+                        // send keydown RawKeys[i]
+                        static_event[i].key_keysym_sym = this_kernel->kmap_usb_to_ps2[RawKeys[i]];
+                        static_event[i].type = SDL_KEYDOWN;
+                        static_event[i].key_keysym_mod = 0;
+                    }
+                    // else should never happen, we lost a keydown
+                }
+            }
+
+            if (lastRawKeys[i] != 0)
+            {
+                // a disappeared one
+                if (findInLastRawKeys(lastRawKeys[i], RawKeys) == -1)
+                {
+                    // send keyup lastRawKeys[i] and free the slot
+                    static_event[i].key_keysym_sym = this_kernel->kmap_usb_to_ps2[lastRawKeys[i]];
+                    static_event[i].type = SDL_KEYUP;
+                    static_event[i].key_keysym_mod = 0;
+
+                    // free this slot
+                    lastRawKeys[i] = 0;
+                }
             }
         }
-
-        LOGG_K( Message);
-*/
 }
 
 void CKernel::KeyboardRemovedHandler (CDevice *pDevice, void *pContext)
@@ -785,14 +816,25 @@ void CKernel::MouseEventStub (TMouseEvent Event, unsigned nButtons, unsigned nPo
 
 void CKernel::MouseEventHandler (TMouseEvent Event, unsigned nButtons, unsigned nPosX, unsigned nPosY, int nWheelMove)
 {
+    // DEBUG ON SCREEN DRAW
+    char deb[200] = "";
+    moucount++;
+    sprintf(deb, "M: %06d -- x %03d y %03d -- %c %c %c --",
+            moucount,
+            nPosX, nPosY,
+            (nButtons & MOUSE_BUTTON_LEFT?'L':' '), (nButtons & MOUSE_BUTTON_MIDDLE?'M':' '), (nButtons & MOUSE_BUTTON_RIGHT?'R':' ')
+            );
+    this_kernel->DrawColorRect (20, 720, 800, 16, BLACK_COLOR);
+    this_kernel->DrawText (20, 720, BRIGHT_WHITE_COLOR, deb, TTextAlign::AlignLeft);
+
     switch (Event)
     {
         case MouseEventMouseMove:
                 static_mouse_event.type = SDL_MOUSEMOTION;
 
                 // nPos are absolute positions, we need them relative.
-                static_mouse_event.motion_xrel = nPosX;
-                static_mouse_event.motion_yrel = nPosY;
+                static_mouse_event.motion_xrel = nPosX - lastmousex;
+                static_mouse_event.motion_yrel = nPosY - lastmousey;
 
                 lastmousex = nPosX;
                 lastmousey = nPosY;
