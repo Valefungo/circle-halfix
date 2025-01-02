@@ -170,7 +170,8 @@ void SDL_Kernel_Log(const char *line)
 
 SDL_Event static_event[6];
 SDL_Event static_mod_event[8];
-SDL_Event static_mouse_event;
+SDL_Event static_mouse_move_event;
+SDL_Event static_mouse_button_event[3];
 int lastmousex=0;
 int lastmousey=0;
 
@@ -210,13 +211,26 @@ int SDL_PollEvent(SDL_Event *event)
         }
     }
 
-    if (static_mouse_event.type != 0)
+    if (static_mouse_move_event.type != 0)
     {
-        // LOGG_C( "MPOLL %d x%d y%d\n", static_mouse_event.type, static_mouse_event.motion_xrel, static_mouse_event.motion_yrel);
+        // LOGG_C( "MPOLL %d x%d y%d\n", static_mouse_move_event.type, static_mouse_move_event.motion_xrel, static_mouse_move_event.motion_yrel);
 
-        memcpy(event, &static_mouse_event, sizeof(SDL_Event));
-        static_mouse_event.type = 0;
+        memcpy(event, &static_mouse_move_event, sizeof(SDL_Event));
+        static_mouse_move_event.type = 0;
+        static_mouse_move_event.motion_xrel = 0;
+        static_mouse_move_event.motion_yrel = 0;
+
         return SDL_TRUE;
+    }
+
+    for (int i=0; i<3; i++)
+    {
+        if (static_mouse_button_event[i].type != 0)
+        {
+            memcpy(event, &static_mouse_button_event[i], sizeof(SDL_Event));
+            static_mouse_button_event[i].type = 0;
+            return SDL_TRUE;
+        }
     }
 
     return SDL_FALSE;
@@ -349,15 +363,15 @@ void CKernel::DrawColorRect (unsigned nX, unsigned nY, unsigned nWidth, unsigned
 {
         if(nX + nWidth > nTargetWidth || nY + nHeight > nTargetHeight)
         {
-                return;
+            return;
         }
 
         for(unsigned i=0; i<nHeight; i++)
         {
-                for(unsigned j=0; j<nWidth; j++)
-                {
-                        targetPixelBuffer[(nY + i) * nTargetWidth + j + nX] = Color;
-                }
+            for(unsigned j=0; j<nWidth; j++)
+            {
+                targetPixelBuffer[(nY + i) * nTargetWidth + j + nX] = Color;
+            }
         }
 }
 
@@ -374,15 +388,15 @@ void CKernel::DrawImageRect (unsigned nX, unsigned nY, unsigned nWidth, unsigned
 {
         if(nX + nWidth > nTargetWidth || nY + nHeight > nTargetHeight)
         {
-                return;
+            return;
         }
 
         for(unsigned i=0; i<nHeight; i++)
         {
-                for(unsigned j=0; j<nWidth; j++)
-                {
-                        targetPixelBuffer[(nY + i) * nTargetWidth + j + nX] = sourcePixelBuffer[(nSourceY + i) * nWidth + j + nSourceX];
-                }
+            for(unsigned j=0; j<nWidth; j++)
+            {
+                targetPixelBuffer[(nY + i) * nTargetWidth + j + nX] = sourcePixelBuffer[(nSourceY + i) * nWidth + j + nSourceX];
+            }
         }
 }
 
@@ -399,32 +413,32 @@ void CKernel::DrawText (unsigned nX, unsigned nY, TScreenColor Color, const char
         unsigned nWidth = strlen (pText) * m_Font.GetCharWidth ();
         if (Align == AlignRight)
         {
-                nX -= nWidth;
+            nX -= nWidth;
         }
         else if (Align == AlignCenter)
         {
-                nX -= nWidth / 2;
+            nX -= nWidth / 2;
         }
 
         if (   nX > nTargetWidth
             || nX + nWidth > nTargetWidth
             || nY + m_Font.GetUnderline () > nTargetHeight)
         {
-                return;
+            return;
         }
 
         for (; *pText != '\0'; pText++, nX += m_Font.GetCharWidth ())
         {
-                for (unsigned y = 0; y < m_Font.GetUnderline (); y++)
+            for (unsigned y = 0; y < m_Font.GetUnderline (); y++)
+            {
+                for (unsigned x = 0; x < m_Font.GetCharWidth (); x++)
                 {
-                        for (unsigned x = 0; x < m_Font.GetCharWidth (); x++)
-                        {
-                                if (m_Font.GetPixel (*pText, x, y))
-                                {
-                                        targetPixelBuffer[(nY + y) * nTargetWidth + x + nX] = Color;
-                                }
-                        }
+                    if (m_Font.GetPixel (*pText, x, y))
+                    {
+                        targetPixelBuffer[(nY + y) * nTargetWidth + x + nX] = Color;
+                    }
                 }
+            }
         }
 }
 
@@ -497,6 +511,14 @@ void CKernel::wrapDrawImage(unsigned nX, unsigned nY, unsigned nWidth, unsigned 
 void CKernel::wrapResize(unsigned nWidth, unsigned nHeight)
 {
     // mScreen.Resize(nWidth, nHeight);
+    if (m_pMouse != 0)
+    {
+        m_pMouse->Release();
+        if (m_pMouse->Setup (nWidth, nHeight))
+            m_pMouse->SetCursor(nWidth/2, nHeight/2);
+        else
+            LOGG_K( "Cannot setup mouse");
+    }
 }
 
 bool CKernel::Initialize(void)
@@ -697,7 +719,7 @@ void CKernel::UpdateKeyboardAndMouse()
                     LOGG_K( "Cannot setup mouse");
                 }
 
-                m_pMouse->SetCursor (0, 0);
+                m_pMouse->SetCursor (virtual_screen_width/2, virtual_screen_height/2);
                 m_pMouse->ShowCursor (TRUE);
 
                 m_pMouse->RegisterEventHandler (MouseEventStub);
@@ -830,31 +852,28 @@ void CKernel::MouseEventHandler (TMouseEvent Event, unsigned nButtons, unsigned 
     switch (Event)
     {
         case MouseEventMouseMove:
-                static_mouse_event.type = SDL_MOUSEMOTION;
-
-                // nPos are absolute positions, we need them relative.
-                static_mouse_event.motion_xrel = nPosX - lastmousex;
-                static_mouse_event.motion_yrel = nPosY - lastmousey;
-
+                static_mouse_move_event.motion_xrel += nPosX - lastmousex;
+                static_mouse_move_event.motion_yrel += nPosY - lastmousey;
                 lastmousex = nPosX;
                 lastmousey = nPosY;
 
+                // keep this thing centered
+                if (static_mouse_move_event.type == SDL_MOUSEMOTION)
+                    m_pMouse->SetCursor(virtual_screen_width/2, virtual_screen_height/2);
+                else
+                    static_mouse_move_event.type = SDL_MOUSEMOTION;
                 break;
 
         case MouseEventMouseDown:
-                static_mouse_event.type = SDL_MOUSEBUTTONDOWN;
-                static_mouse_event.button.button = 0;
-                if (nButtons & MOUSE_BUTTON_LEFT)   static_mouse_event.button.button = SDL_BUTTON_LEFT;
-                if (nButtons & MOUSE_BUTTON_MIDDLE) static_mouse_event.button.button = SDL_BUTTON_MIDDLE;
-                if (nButtons & MOUSE_BUTTON_RIGHT)  static_mouse_event.button.button = SDL_BUTTON_RIGHT;
+                if (nButtons & MOUSE_BUTTON_LEFT)   { static_mouse_button_event[0].button.button = SDL_BUTTON_LEFT;   static_mouse_button_event[0].type = SDL_MOUSEBUTTONDOWN; }
+                if (nButtons & MOUSE_BUTTON_MIDDLE) { static_mouse_button_event[1].button.button = SDL_BUTTON_MIDDLE; static_mouse_button_event[1].type = SDL_MOUSEBUTTONDOWN; }
+                if (nButtons & MOUSE_BUTTON_RIGHT)  { static_mouse_button_event[2].button.button = SDL_BUTTON_RIGHT;  static_mouse_button_event[2].type = SDL_MOUSEBUTTONDOWN; }
                 break;
 
         case MouseEventMouseUp:
-                static_mouse_event.type = SDL_MOUSEBUTTONUP;
-                static_mouse_event.button.button = 0;
-                if (nButtons & MOUSE_BUTTON_LEFT)   static_mouse_event.button.button = SDL_BUTTON_LEFT;
-                if (nButtons & MOUSE_BUTTON_MIDDLE) static_mouse_event.button.button = SDL_BUTTON_MIDDLE;
-                if (nButtons & MOUSE_BUTTON_RIGHT)  static_mouse_event.button.button = SDL_BUTTON_RIGHT;
+                if (nButtons & MOUSE_BUTTON_LEFT)   { static_mouse_button_event[0].button.button = SDL_BUTTON_LEFT;   static_mouse_button_event[0].type = SDL_MOUSEBUTTONUP; }
+                if (nButtons & MOUSE_BUTTON_MIDDLE) { static_mouse_button_event[1].button.button = SDL_BUTTON_MIDDLE; static_mouse_button_event[1].type = SDL_MOUSEBUTTONUP; }
+                if (nButtons & MOUSE_BUTTON_RIGHT)  { static_mouse_button_event[2].button.button = SDL_BUTTON_RIGHT;  static_mouse_button_event[2].type = SDL_MOUSEBUTTONUP; }
                 break;
 
         case MouseEventMouseWheel:
