@@ -33,8 +33,8 @@ OBJS    = main.o kernel.o $(O2) $(ZIP) $(PNG)
 
 include $(CIRCLEHOME)/Rules.mk
 
-CFLAGS += -I "$(NEWLIBDIR)/include" -I $(STDDEF_INCPATH) -I. -Iinclude -Iextra/minizip -Iextra/minipng -I ../../include -DLOGGING_DISABLED -DNATIVE_BUILD -DPNG_ARM_NEON_OPT=0 -O3
-# CFLAGS += -I "$(NEWLIBDIR)/include" -I $(STDDEF_INCPATH) -I. -Iinclude -Iextra/minizip -Iextra/minipng -I ../../include -DLOGGING_DISABLED -DNATIVE_BUILD -DPNG_ARM_NEON_OPT=0 -ggdb -O0
+# CFLAGS += -I "$(NEWLIBDIR)/include" -I $(STDDEF_INCPATH) -I. -Iinclude -Iextra/minizip -Iextra/minipng -I ../../include -DLOGGING_DISABLED -DNATIVE_BUILD -DPNG_ARM_NEON_OPT=0 -O3
+CFLAGS += -I "$(NEWLIBDIR)/include" -I $(STDDEF_INCPATH) -I. -Iinclude -Iextra/minizip -Iextra/minipng -I ../../include -DLOGGING_DISABLED -DNATIVE_BUILD -DPNG_ARM_NEON_OPT=0 -ggdb -O0
 LIBS := "$(NEWLIBDIR)/lib/libm.a" "$(NEWLIBDIR)/lib/libc.a" "$(NEWLIBDIR)/lib/libcirclenewlib.a" \
  	$(CIRCLEHOME)/addon/SDCard/libsdcard.a \
   	$(CIRCLEHOME)/lib/usb/libusb.a \
