@@ -277,10 +277,9 @@ void io_remap_mmio_read(uint32_t oldstart, uint32_t newstart){
 
 void io_handle_mmio_write(uint32_t addr, uint32_t data, int size)
 {
-    //if(addr == 0x004abc95) __asm__("int3");
     for (int i = 0; i <= MAX_MMIO; i++) {
         if (addr >= mmio[i].begin && mmio[i].end >= addr) {
-            //printf("'%c' %08x %08x %08x %d %d size: %d\n", data, mmio[i].begin, addr, mmio[i].end, addr >= mmio[i].begin, addr < mmio[i].end, size);
+            //IO_LOG("'%c' %08x %08x %08x %d %d size: %d\n", data, mmio[i].begin, addr, mmio[i].end, addr >= mmio[i].begin, addr < mmio[i].end, size);
             mmio[i].w[size](addr, data);
             return;
         }
@@ -292,7 +291,7 @@ uint32_t io_handle_mmio_read(uint32_t addr, int size)
     for (int i = 0; i <= MAX_MMIO; i++) {
         if (addr >= mmio[i].begin && mmio[i].end >= addr) {
             uint32_t res = mmio[i].r[size](addr); 
-            //printf("%08x\n", res);
+            //IO_LOG("%08x\n", res);
             return res;
         }
     }

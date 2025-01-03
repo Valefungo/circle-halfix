@@ -32,7 +32,12 @@
 #include "noSDL_keysym.h"
 #include "png.h"
 
+// if building for raspi 4, define this
+#if RASPPI == 4
 #define TRUE_RASPI_4
+#else
+#undef TRUE_RASPI_4
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -517,15 +522,7 @@ void CKernel::wrapResize(unsigned nWidth, unsigned nHeight)
 
     if (m_pMouse != 0)
     {
-        m_pMouse->Release();
-        if (m_pMouse->Setup (nWidth, nHeight))
-        {
-            m_pMouse->SetCursor(nWidth/2, nHeight/2);
-            lastmousex = virtual_screen_width/2;
-            lastmousey = virtual_screen_height/2;
-        }
-        else
-            LOGG_K( "Cannot setup mouse");
+        ConfigureMouse(TRUE, virtual_screen_width, virtual_screen_height);
     }
 }
 
@@ -687,6 +684,27 @@ CStdlibApp::TShutdownMode CKernel::Run (void)
     return ShutdownHalt;
 }
 
+void CKernel::ConfigureMouse(boolean init, unsigned nScreenWidth, unsigned nScreenHeight)
+{
+    if (init)
+    {
+        m_pMouse->Release();
+        if (!m_pMouse->Setup (nScreenWidth, nScreenHeight))
+        {
+#ifdef TRUE_RASPI_4
+            // do not complain on QEMU emulator
+            LOGG_K( "Cannot setup mouse");
+#endif
+        }
+    }
+
+    m_pMouse->SetCursor (nScreenWidth/2, nScreenHeight/2);
+    m_pMouse->ShowCursor (FALSE);
+
+    lastmousex = virtual_screen_width/2;
+    lastmousey = virtual_screen_height/2;
+}
+
 void CKernel::UpdateKeyboardAndMouse()
 {
     boolean bUpdated = mUSBHCI.UpdatePlugAndPlay ();
@@ -721,17 +739,7 @@ void CKernel::UpdateKeyboardAndMouse()
 
                 LOGG_K( "USB mouse has %d buttons and %s wheel", m_pMouse->GetButtonCount(), m_pMouse->HasWheel() ? "a" : "no");
 
-                m_pMouse->Release();
-                if (!m_pMouse->Setup (virtual_screen_width, virtual_screen_height))
-                {
-                    LOGG_K( "Cannot setup mouse");
-                }
-
-                m_pMouse->SetCursor (virtual_screen_width/2, virtual_screen_height/2);
-                m_pMouse->ShowCursor (FALSE);
-
-                lastmousex = virtual_screen_width/2;
-                lastmousey = virtual_screen_height/2;
+                ConfigureMouse(TRUE, virtual_screen_width, virtual_screen_height);
 
                 m_pMouse->RegisterEventHandler (MouseEventStub);
             }
@@ -871,9 +879,7 @@ void CKernel::MouseEventHandler (TMouseEvent Event, unsigned nButtons, unsigned 
                 // keep this thing centered
                 if (static_mouse_move_event.type == SDL_MOUSEMOTION)
                 {
-                    m_pMouse->SetCursor(virtual_screen_width/2, virtual_screen_height/2);
-                    lastmousex = virtual_screen_width/2;
-                    lastmousey = virtual_screen_height/2;
+                    ConfigureMouse(FALSE, virtual_screen_width, virtual_screen_height);
                 }
                 else
                     static_mouse_move_event.type = SDL_MOUSEMOTION;

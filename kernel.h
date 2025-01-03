@@ -67,6 +67,8 @@ public:
     void wrapDrawImage(unsigned nX, unsigned nY, unsigned nWidth, unsigned nHeight, TScreenColor *sourcePixelBuffer);
     void wrapResize(unsigned nWidth, unsigned nHeight);
 
+    void ConfigureMouse(boolean init, unsigned nScreenWidth, unsigned nScreenHeight);
+
     CUSBKeyboardDevice * volatile m_pre_pKeyboard;
     CUSBKeyboardDevice * volatile m_pKeyboard;
 

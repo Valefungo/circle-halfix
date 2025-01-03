@@ -389,6 +389,47 @@ int pit_next(itick_t now)
     return -1;
 }
 
+/*
+    BOCHS: https://github.com/bochs-emu/Bochs/blob/master/bochs/iodev/pit.cc
+
+      bool new_speaker_active, new_speaker_level;
+        Bit8u   value;
+    case 0x42: // timer 2: write count register
+      BX_PIT_THIS s.timer.write(2, value);
+      if (BX_PIT_THIS s.speaker_active && (BX_PIT_THIS s.timer.get_mode(2) == 3) &&
+          BX_PIT_THIS new_timer_count(2)) {
+        value32 = BX_PIT_THIS get_timer(2);
+        if (value32 == 0) value32 = 0x10000;
+        DEV_speaker_beep_on((float)(1193180.0 / value32));
+      }
+      break;
+
+    case 0x61:
+      BX_PIT_THIS s.timer.set_GATE(2, value & 0x01);
+      BX_PIT_THIS s.speaker_data_on = (value >> 1) & 0x01;
+      new_speaker_active = ((value & 3) == 3);
+      if (BX_PIT_THIS s.timer.get_mode(2) == 3) {
+        if (BX_PIT_THIS s.speaker_active != new_speaker_active) {
+          if (new_speaker_active) {
+            value32 = BX_PIT_THIS get_timer(2);
+            if (value32 == 0) value32 = 0x10000;
+            DEV_speaker_beep_on((float)(1193180.0 / value32));
+          } else {
+            DEV_speaker_beep_off();
+          }
+          BX_PIT_THIS s.speaker_active = new_speaker_active;
+        }
+      } else {
+        new_speaker_level = BX_PIT_THIS s.speaker_data_on & BX_PIT_THIS s.timer.read_OUT(2);
+        if (BX_PIT_THIS s.speaker_level != new_speaker_level) {
+          DEV_speaker_set_line(new_speaker_level);
+          BX_PIT_THIS s.speaker_level = new_speaker_level;
+        }
+      }
+      break;
+
+*/
+
 static uint32_t pit_speaker_readb(uint32_t port)
 {
     UNUSED(port);
@@ -407,8 +448,14 @@ void pit_init(void)
     //state_register(pit_save);
     io_register_reset(pit_reset);
 
-    io_register_read(0x40, 3, pit_readb, NULL, NULL);
-    io_register_write(0x40, 4, pit_writeb, NULL, NULL);
+    io_register_read(0x40, 1, pit_readb, NULL, NULL);
+    io_register_read(0x41, 1, pit_readb, NULL, NULL);
+    io_register_read(0x42, 1, pit_readb, NULL, NULL);
+    io_register_read(0x43, 1, pit_readb, NULL, NULL);
+    io_register_write(0x40, 1, pit_writeb, NULL, NULL);
+    io_register_write(0x41, 1, pit_writeb, NULL, NULL);
+    io_register_write(0x42, 1, pit_writeb, NULL, NULL);
+    io_register_write(0x43, 1, pit_writeb, NULL, NULL);
 
     // Technically the PC speaker is not part of the PIT, but it's controlled by the PIT...
     io_register_read(0x61, 1, pit_speaker_readb, NULL, NULL);
