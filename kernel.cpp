@@ -189,6 +189,18 @@ void addModUp(int slot, int mod)
 
 int SDL_PollEvent(SDL_Event *event)
 {
+    if (static_mouse_move_event.type != 0)
+    {
+        // LOGG_C( "MPOLL %d x%d y%d\n", static_mouse_move_event.type, static_mouse_move_event.motion_xrel, static_mouse_move_event.motion_yrel);
+
+        memcpy(event, &static_mouse_move_event, sizeof(SDL_Event));
+        static_mouse_move_event.type = 0;
+        static_mouse_move_event.motion_xrel = 0;
+        static_mouse_move_event.motion_yrel = 0;
+
+        return SDL_TRUE;
+    }
+
     for (int i=0; i<8; i++)
     {
         if (static_mod_event[i].type != 0)
@@ -209,18 +221,6 @@ int SDL_PollEvent(SDL_Event *event)
             static_event[i].type = 0;
             return SDL_TRUE;
         }
-    }
-
-    if (static_mouse_move_event.type != 0)
-    {
-        // LOGG_C( "MPOLL %d x%d y%d\n", static_mouse_move_event.type, static_mouse_move_event.motion_xrel, static_mouse_move_event.motion_yrel);
-
-        memcpy(event, &static_mouse_move_event, sizeof(SDL_Event));
-        static_mouse_move_event.type = 0;
-        static_mouse_move_event.motion_xrel = 0;
-        static_mouse_move_event.motion_yrel = 0;
-
-        return SDL_TRUE;
     }
 
     for (int i=0; i<3; i++)
@@ -304,9 +304,7 @@ int SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst, SDL_R
 }
 
 SDL_Surface * SDL_SetVideoMode(int width, int height, int bpp, Uint32 flags)
-{ 
-    virtual_screen_width = width;
-    virtual_screen_height = height;
+{
     // LOG_C( "SDL_SetVideoMode %d, %d, %d, %d\n", width, height, bpp, DEPTH);
 
     if (height != 0)
@@ -347,7 +345,11 @@ unsigned SDL_wrapCheckTimerMs()
     return this_kernel->CheckTimerMs();
 }
 
-
+void SDL_wrapScreenLogAt(char *line, unsigned x, unsigned y)
+{
+    this_kernel->DrawColorRect (x, y, 800, 16, BLACK_COLOR);
+    this_kernel->DrawText (x, y, BRIGHT_WHITE_COLOR, line, CKernel::TTextAlign::AlignLeft);
+}
 
 using namespace std;
 
@@ -463,8 +465,7 @@ unsigned CKernel::CheckTimer()
 
 unsigned CKernel::CheckTimerMs()
 {
-    unsigned nEndTicks = CTimer::GetClockTicks();
-    unsigned nDurationMs = (nEndTicks - nStartTicks) / 1000;
+    unsigned nDurationMs = (CTimer::GetClockTicks() - nStartTicks) / 1000;
     return nDurationMs;
 }
 
@@ -511,11 +512,18 @@ void CKernel::wrapDrawImage(unsigned nX, unsigned nY, unsigned nWidth, unsigned 
 void CKernel::wrapResize(unsigned nWidth, unsigned nHeight)
 {
     // mScreen.Resize(nWidth, nHeight);
+    virtual_screen_width = nWidth;
+    virtual_screen_height = nHeight;
+
     if (m_pMouse != 0)
     {
         m_pMouse->Release();
         if (m_pMouse->Setup (nWidth, nHeight))
+        {
             m_pMouse->SetCursor(nWidth/2, nHeight/2);
+            lastmousex = virtual_screen_width/2;
+            lastmousey = virtual_screen_height/2;
+        }
         else
             LOGG_K( "Cannot setup mouse");
     }
@@ -720,7 +728,10 @@ void CKernel::UpdateKeyboardAndMouse()
                 }
 
                 m_pMouse->SetCursor (virtual_screen_width/2, virtual_screen_height/2);
-                m_pMouse->ShowCursor (TRUE);
+                m_pMouse->ShowCursor (FALSE);
+
+                lastmousex = virtual_screen_width/2;
+                lastmousey = virtual_screen_height/2;
 
                 m_pMouse->RegisterEventHandler (MouseEventStub);
             }
@@ -859,7 +870,11 @@ void CKernel::MouseEventHandler (TMouseEvent Event, unsigned nButtons, unsigned 
 
                 // keep this thing centered
                 if (static_mouse_move_event.type == SDL_MOUSEMOTION)
+                {
                     m_pMouse->SetCursor(virtual_screen_width/2, virtual_screen_height/2);
+                    lastmousex = virtual_screen_width/2;
+                    lastmousey = virtual_screen_height/2;
+                }
                 else
                     static_mouse_move_event.type = SDL_MOUSEMOTION;
                 break;

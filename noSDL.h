@@ -80,6 +80,7 @@ void SDL_Kernel_Log(const char *line);
 void SDL_wrapStartTimer();
 unsigned SDL_wrapCheckTimer();
 unsigned SDL_wrapCheckTimerMs();
+void SDL_wrapScreenLogAt(char *line, unsigned x, unsigned y);
 
 #ifdef __cplusplus
 }

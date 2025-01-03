@@ -31,17 +31,14 @@
 
 class CKernel : public CStdlibAppStdio
 {
-private:
-        enum TTextAlign
-        {
-                AlignLeft,
-                AlignRight,
-                AlignCenter
-        };
-
-        CCharGenerator m_Font;
-
 public:
+    enum TTextAlign
+    {
+            AlignLeft,
+            AlignRight,
+            AlignCenter
+    };
+
     CKernel (void);
     virtual bool Initialize(void);
 
@@ -77,6 +74,7 @@ public:
     CMouseDevice * volatile m_pMouse;
 
     CLogger * p_mLogger;
+    CCharGenerator m_Font;
 
     void UpdateKeyboardAndMouse();
     static void KeyStatusHandlerRaw (unsigned char ucModifiers, const unsigned char RawKeys[6]);
@@ -87,7 +85,6 @@ public:
     static void MouseRemovedHandler (CDevice *pDevice, void *pContext);
 
     TShutdownMode Run (void);
-
 };
 
 #endif

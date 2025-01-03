@@ -150,32 +150,34 @@ parse_config:
     }
 #else
     // Good for real-world stuff
+    char deb[200]="";
     while (1) {
 
-        unsigned a, b, c, d, e;
+        unsigned b, c, d, e;
         SDL_wrapStartTimer();
-        a = SDL_wrapCheckTimerMs();
+        SDL_wrapCheckTimerMs();
 
         int ms_to_sleep = pc_execute();
 
-        b = SDL_wrapCheckTimerMs() - a;
+        b = SDL_wrapCheckTimerMs();
 
         // Update our screen/devices here
         vga_update();
 
-        c = SDL_wrapCheckTimerMs() - (a + b);
+        c = SDL_wrapCheckTimerMs() - (b);
 
         display_handle_events();
         ms_to_sleep &= realtime;
 
-        d = SDL_wrapCheckTimerMs() - (a + b + c);
+        d = SDL_wrapCheckTimerMs() - (b + c);
 
         // ms_to_sleep is always zero here, this updates the USB status
         display_sleep(ms_to_sleep * 5);
 
-        e = SDL_wrapCheckTimerMs() - (a + b + c + d);
+        e = SDL_wrapCheckTimerMs() - (b + c + d);
 
-        // printf("Tim: %u - exec:%u -  vga:%u -  events:%u -  sleep:%u\n", a, b, c, d, e);
+        sprintf(deb, "Exe:%03u - vga:%03u - eve:%03u - slp:%03u  -  Tot:%04u", b, c, d, e, (b + c + d + e));
+        SDL_wrapScreenLogAt(deb, 20, 740);
     }
 #endif
 }
