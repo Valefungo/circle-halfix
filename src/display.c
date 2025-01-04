@@ -234,7 +234,7 @@ void display_init(void)
     display_set_title();
     display_set_resolution(640, 480);
 
-    screen = SDL_SetVideoMode(640, 400, 32, SDL_SWSURFACE);
+    screen = SDL_SetVideoMode(640, 480, 32, SDL_SWSURFACE);
 
     resized = 0;
 }

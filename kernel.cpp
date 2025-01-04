@@ -248,9 +248,7 @@ void SDL_FreeSurface(SDL_Surface *surface)
 
 int SDL_Flip(SDL_Surface *screen)
 {
-    // LOGG_C( "SDL_Flip IN  %d, %d", screen->w, screen->h);
-    this_kernel->wrapUpdateDisplay();
-    // LOGG_C( "SDL_Flip OUT %d, %d", screen->w, screen->h);
+    // Nothing to explicitly flip
     return 0;
 }
 
@@ -398,11 +396,27 @@ void CKernel::DrawImageRect (unsigned nX, unsigned nY, unsigned nWidth, unsigned
             return;
         }
 
-        for(unsigned i=0; i<nHeight; i++)
+        // "ultrafast" memcpy when the areas fully overlaps
+        if (nY == 0 && nSourceY == 0 && nX == 0 && nSourceX == 0 && nWidth == nTargetWidth && nHeight == nTargetHeight)
         {
-            for(unsigned j=0; j<nWidth; j++)
+            memcpy(targetPixelBuffer, sourcePixelBuffer, nWidth*nHeight*sizeof(TScreenColor));
+        }
+        // "fast" memcpy when copying from 0,0 to 0,0
+        else if (nY == 0 && nSourceY == 0 && nX == 0 && nSourceX == 0)
+        {
+            for(unsigned i=0; i<nHeight; i++)
             {
-                targetPixelBuffer[(nY + i) * nTargetWidth + j + nX] = sourcePixelBuffer[(nSourceY + i) * nWidth + j + nSourceX];
+                memcpy(&(targetPixelBuffer[i * nTargetWidth]), &(sourcePixelBuffer[i * nWidth]), nWidth*sizeof(TScreenColor));
+            }
+        }
+        else
+        {
+            for(unsigned i=0; i<nHeight; i++)
+            {
+                for(unsigned j=0; j<nWidth; j++)
+                {
+                    targetPixelBuffer[(nY + i) * nTargetWidth + j + nX] = sourcePixelBuffer[(nSourceY + i) * nWidth + j + nSourceX];
+                }
             }
         }
 }
@@ -477,28 +491,6 @@ unsigned CKernel::CheckTimerMs()
 void CKernel::MsPause(int ms)
 {
     mTimer.MsDelay (ms);
-}
-
-void CKernel::Pause(char *m)
-{
-    LOGG_K( "Pause: %s... Type some characters and hit <RETURN>", m);
-
-    /* * /
-    char line[200];
-    if (fgets(line, sizeof(line), stdin) != nullptr)
-    {
-    	LOGG_K( "Read '%s' from stdin...", line);
-    }
-    else
-    {
-        perror("fgets returned NULL");
-    }
-    / **/
-}
-
-void CKernel::wrapUpdateDisplay()
-{
-    // does not exists: mScreen.UpdateDisplay();
 }
 
 void CKernel::wrapClearScreen(TScreenColor color)
@@ -663,17 +655,12 @@ bool CKernel::Initialize(void)
     kmap_usb_to_ps2[0xE6]=0xE038; // Right Alt
     kmap_usb_to_ps2[0xE7]=0xE05C; // Right GUI
 
-    Pause((char *)"post-init");
-
     return r;
 }
 
 CStdlibApp::TShutdownMode CKernel::Run (void)
 {
-    LOGG_K( "Circle-Halfix");
-    LOGG_K( "Compile time: " __DATE__ " " __TIME__);
-
-    Pause((char *)"do-run");
+    LOGG_K( "Circle-Halfix - Compile time: " __DATE__ " " __TIME__);
 
     char *argv[] = { (char *)"halfix" };
     int retval = main_halfix_unix(1, argv);
@@ -708,12 +695,14 @@ void CKernel::ConfigureMouse(boolean init, unsigned nScreenWidth, unsigned nScre
 void CKernel::UpdateKeyboardAndMouse()
 {
     boolean bUpdated = mUSBHCI.UpdatePlugAndPlay ();
-    m_pKeyboard = (CUSBKeyboardDevice *) mDeviceNameService.GetDevice ("ukbd1", FALSE);
-    m_pMouse = (CMouseDevice *) mDeviceNameService.GetDevice ("mouse1", FALSE);
 
-    // LOGG_K( "Update K&M: %d k %08X %08X m %08X %08X", bUpdated, m_pKeyboard, m_pre_pKeyboard, m_pMouse, m_pre_pMouse);
     if (bUpdated)
     {
+        m_pKeyboard = (CUSBKeyboardDevice *) mDeviceNameService.GetDevice ("ukbd1", FALSE);
+        m_pMouse = (CMouseDevice *) mDeviceNameService.GetDevice ("mouse1", FALSE);
+
+        // LOGG_K( "Update K&M: %d k %08X %08X m %08X %08X", bUpdated, m_pKeyboard, m_pre_pKeyboard, m_pMouse, m_pre_pMouse);
+
         if (m_pKeyboard != m_pre_pKeyboard)
         {
             if (m_pKeyboard != 0)

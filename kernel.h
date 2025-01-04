@@ -42,7 +42,6 @@ public:
     CKernel (void);
     virtual bool Initialize(void);
 
-    void Pause(char *m);
     void MsPause(int ms);
     void StartTimer();
     unsigned CheckTimer();
@@ -62,7 +61,6 @@ public:
                    unsigned nTargetWidth, unsigned nTargetHeight, TScreenColor *targetPixelBuffer);
     void DrawText (unsigned nX, unsigned nY, TScreenColor Color, const char *pText, TTextAlign Align);
 
-    void wrapUpdateDisplay();
     void wrapClearScreen(TScreenColor color);
     void wrapDrawImage(unsigned nX, unsigned nY, unsigned nWidth, unsigned nHeight, TScreenColor *sourcePixelBuffer);
     void wrapResize(unsigned nWidth, unsigned nHeight);
