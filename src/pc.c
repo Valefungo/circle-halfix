@@ -52,7 +52,7 @@ static void pc_init_cmos_disk(struct drive_info* drv, int id)
 
         int base = 0x1B + id * 9;
         cmos_set(base + 0, drv->cylinders_per_head & 0xFF);
-        cmos_set(base + 1, drv->cylinders_per_head >> 8 & 0xFF);
+        cmos_set(base + 1, (drv->cylinders_per_head >> 8) & 0xFF);
         cmos_set(base + 2, drv->heads);
         cmos_set(base + 3, 0xFF);
         cmos_set(base + 4, 0xFF);
@@ -61,7 +61,7 @@ static void pc_init_cmos_disk(struct drive_info* drv, int id)
         else
             cmos_set(base + 5, (drv->heads > 8) << 7);
         cmos_set(base + 6, drv->cylinders_per_head & 0xFF); // note: a mirroring of base + 0 and base + 1
-        cmos_set(base + 7, drv->cylinders_per_head >> 8 & 0xFF);
+        cmos_set(base + 7, (drv->cylinders_per_head >> 8) & 0xFF);
         cmos_set(base + 8, drv->sectors_per_cylinder);
 
         int translation_id = 0x39 + (id >> 1);
@@ -404,10 +404,10 @@ void pc_hlt_if_0(void)
 static int sync = 0;
 static uint64_t last = 0;
 
-int pc_execute(void)
+int pc_execute(int maxcycles)
 {
     // This function is called repeatedly.
-    int frames = 0, cycles_to_run, cycles_run, exit_reason, devices_need_servicing = 0;
+    int frames = maxcycles, cycles_to_run, cycles_run, exit_reason, devices_need_servicing = 0;
     itick_t now;
 
     // Call the callback if needed, for async drive cases

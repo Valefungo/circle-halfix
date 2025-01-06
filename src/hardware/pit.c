@@ -4,6 +4,7 @@
 #include "io.h"
 #include "state.h"
 #include "util.h"
+#include "noSDL.h"
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -273,6 +274,12 @@ static void pit_writeb(uint32_t port, uint32_t value)
                     PIT_LOG("BCD mode not supported\n");
                 }
             }
+            // Speaker
+            if (channel == 2)
+            {
+                // this.bus.send("pcspeaker-update", [this.counter_mode[2], this.counter_reload[2]]);
+                SDL_Speaker_Update(chan->mode, chan->count);
+            }
             break;
         }
         }
@@ -295,6 +302,12 @@ static void pit_writeb(uint32_t port, uint32_t value)
             pit_set_count(chan, value << 8 | chan->interim_count);
             chan->wmode ^= 1; // ???
             break;
+        }
+        // Speaker
+        if (channel == 2)
+        {
+            // this.bus.send("pcspeaker-update", [this.counter_mode[2], this.counter_reload[2]]);
+            SDL_Speaker_Update(chan->mode, chan->count);
         }
         break;
     }
@@ -439,8 +452,9 @@ static uint32_t pit_speaker_readb(uint32_t port)
 }
 static void pit_speaker_writeb(uint32_t port, uint32_t data)
 {
-    UNUSED(port | data);
     PIT_LOG("%sabled the pc speaker\n", data & 1 ? "En" : "Dis");
+
+    SDL_Speaker_Enable(data & 1);
 }
 
 void pit_init(void)
@@ -451,7 +465,7 @@ void pit_init(void)
     io_register_read(0x40, 1, pit_readb, NULL, NULL);
     io_register_read(0x41, 1, pit_readb, NULL, NULL);
     io_register_read(0x42, 1, pit_readb, NULL, NULL);
-    io_register_read(0x43, 1, pit_readb, NULL, NULL);
+    // 43 is only writable - io_register_read(0x43, 1, pit_readb, NULL, NULL);
     io_register_write(0x40, 1, pit_writeb, NULL, NULL);
     io_register_write(0x41, 1, pit_writeb, NULL, NULL);
     io_register_write(0x42, 1, pit_writeb, NULL, NULL);

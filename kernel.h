@@ -27,7 +27,24 @@
 #include <circle/2dgraphics.h>
 #include <circle/types.h>
 #include <circle/input/mouse.h>
+#include <circle/sound/soundbasedevice.h>
+#include <circle/sound/hdmisoundbasedevice.h>
+#include <circle/multicore.h>
+#include <circle/memory.h>
+#include "oscillator.h"
 
+/**
+ * Multicore App
+ */
+class CStdlibAppMultiCore: public CMultiCoreSupport
+{
+public:
+        CStdlibAppMultiCore (CMemorySystem *pMemorySystem): CMultiCoreSupport (pMemorySystem)
+        {
+        }
+
+        void Run (unsigned nCore);
+};
 
 class CKernel : public CStdlibAppStdio
 {
@@ -75,6 +92,13 @@ public:
 
     CLogger * p_mLogger;
     CCharGenerator m_Font;
+
+    CSoundBaseDevice        *m_pSound;
+
+    COscillator m_LFO;
+    COscillator m_VFO;
+
+    CStdlibAppMultiCore mStdlibAppMultiCore;
 
     void UpdateKeyboardAndMouse();
     static void KeyStatusHandlerRaw (unsigned char ucModifiers, const unsigned char RawKeys[6]);

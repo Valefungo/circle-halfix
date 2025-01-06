@@ -150,6 +150,8 @@ parse_config:
     }
 #else
     // Good for real-world stuff
+    int frames = 10;
+    int vgaupd = 0;
     char deb[200]="";
     while (1) {
 
@@ -157,12 +159,21 @@ parse_config:
         SDL_wrapStartTimer();
         SDL_wrapCheckTimerMs();
 
-        int ms_to_sleep = pc_execute();
+        int ms_to_sleep = pc_execute(frames);
 
         b = SDL_wrapCheckTimerMs();
 
+        if (b > 100 && frames > 0)
+            frames--;
+        if (b < 100 && frames < 10)
+            frames++;
+
+        vgaupd++;
+        vgaupd %= 10;
+
         // Update our screen/devices here
-        vga_update();
+        if (vgaupd == 0)
+            vga_update();
 
         c = SDL_wrapCheckTimerMs() - (b);
 
@@ -176,7 +187,7 @@ parse_config:
 
         e = SDL_wrapCheckTimerMs() - (b + c + d);
 
-        sprintf(deb, "Exe:%03u - vga:%03u - eve:%03u - slp:%03u  -  Tot:%04u", b, c, d, e, (b + c + d + e));
+        sprintf(deb, "FR: %02d - Exe:%03u - vga:%03u - eve:%03u - slp:%03u  -  Tot:%04u", frames, b, c, d, e, (b + c + d + e));
         SDL_wrapScreenLogAt(deb, 20, 740);
     }
 #endif

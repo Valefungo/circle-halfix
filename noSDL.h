@@ -76,6 +76,9 @@ SDL_GrabMode SDL_WM_GrabInput(SDL_GrabMode mode);
 
 void SDL_Kernel_Log(const char *line);
 
+void SDL_Speaker_Enable(int enable);
+void SDL_Speaker_Update(int mode, int count);
+
 
 void SDL_wrapStartTimer();
 unsigned SDL_wrapCheckTimer();

@@ -31,6 +31,7 @@
 #include "noSDL.h"
 #include "noSDL_keysym.h"
 #include "png.h"
+#include "oscillator.h"
 
 // if building for raspi 4, define this
 #if RASPPI == 4
@@ -39,14 +40,13 @@
 #undef TRUE_RASPI_4
 #endif
 
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
     // the real main
     int main_halfix_unix(int argc, char **argv);
-
-    void screenshot(const char *fn, TScreenColor *pixels, int width, int height);
 
 #ifdef __cplusplus
 }
@@ -354,9 +354,35 @@ void SDL_wrapScreenLogAt(char *line, unsigned x, unsigned y)
     this_kernel->DrawText (x, y, BRIGHT_WHITE_COLOR, line, CKernel::TTextAlign::AlignLeft);
 }
 
+void SDL_Speaker_Enable(int enable)
+{
+    if (enable)
+        SDL_wrapScreenLogAt((char*)"S:ON", 10, 10);
+    else
+        SDL_wrapScreenLogAt((char*)"S:OFF", 10, 10);
+}
+
+void SDL_Speaker_Update(int mode, int count)
+{
+    char deb[100];
+    sprintf(deb, "S: M:%d, C:%d", mode, count);
+    SDL_wrapScreenLogAt(deb, 10, 30);
+}
+
+void CStdlibAppMultiCore::Run(unsigned int nCore)
+{
+    char deb[100];
+    sprintf(deb, "CORE: %d Run", nCore);
+    SDL_wrapScreenLogAt(deb, 10, 50 + (nCore*16));
+}
+
+
 using namespace std;
 
-CKernel::CKernel (void) : CStdlibAppStdio ("circle-halfix")
+CKernel::CKernel (void) : CStdlibAppStdio ("circle-halfix"),
+        m_pSound (0),
+        m_VFO (&m_LFO),          // LFO modulates the VFO
+        mStdlibAppMultiCore(CMemorySystem::Get())
 {
     this_kernel = this;
     p_mLogger = &mLogger;   // make this available to C code
@@ -528,6 +554,33 @@ bool CKernel::Initialize(void)
     // leave whatever QEMU screen is defined on the command line
 #endif
 
+    // init sound device
+    m_pSound = new CHDMISoundBaseDevice (&mInterrupt, SAMPLE_RATE, CHUNK_SIZE);
+
+    if (m_pSound != nullptr)
+    {
+        // initialize oscillators
+        m_LFO.SetWaveform (WaveformSine);
+        m_LFO.SetFrequency (10.0);
+
+        m_VFO.SetWaveform (WaveformSine);
+        m_VFO.SetFrequency (440.0);
+        m_VFO.SetModulationVolume (0.25);
+
+        // configure sound device
+        if (m_pSound->AllocateQueue (QUEUE_SIZE_MSECS))
+        {
+            m_pSound->SetWriteFormat (FORMAT, WRITE_CHANNELS);
+        }
+        else
+        {
+            LOGG_K("Sound cannot be initialized");
+            delete m_pSound;
+            m_pSound = nullptr;
+        }
+    }
+
+
     // https://stackoverflow.com/questions/69558563/how-to-convert-between-keyboard-scan-code-and-usb-keyboard-usage-index
     // https://pastebin.com/5J41WCQP
     //
@@ -655,12 +708,16 @@ bool CKernel::Initialize(void)
     kmap_usb_to_ps2[0xE6]=0xE038; // Right Alt
     kmap_usb_to_ps2[0xE7]=0xE05C; // Right GUI
 
+    mStdlibAppMultiCore.Initialize();
+
     return r;
 }
 
 CStdlibApp::TShutdownMode CKernel::Run (void)
 {
     LOGG_K( "Circle-Halfix - Compile time: " __DATE__ " " __TIME__);
+
+    mStdlibAppMultiCore.Run(0);
 
     char *argv[] = { (char *)"halfix" };
     int retval = main_halfix_unix(1, argv);

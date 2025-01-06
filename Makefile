@@ -29,7 +29,7 @@ src/cpu/ops/arith.o src/cpu/ops/io.o src/cpu/ops/string.o src/cpu/ops/stack.o sr
 src/cpu/softfloat.o src/cpu/fpu.o \
 src/hardware/dma.o src/hardware/cmos.o src/hardware/pit.o src/hardware/pic.o src/hardware/kbd.o src/hardware/vga.o src/hardware/ide.o src/hardware/pci.o src/hardware/apic.o src/hardware/ioapic.o src/hardware/fdc.o src/hardware/acpi.o
 
-OBJS    = main.o kernel.o $(O2) $(ZIP) $(PNG)
+OBJS    = main.o kernel.o oscillator.o $(O2) $(ZIP) $(PNG)
 
 include $(CIRCLEHOME)/Rules.mk
 
@@ -43,6 +43,7 @@ LIBS := "$(NEWLIBDIR)/lib/libm.a" "$(NEWLIBDIR)/lib/libc.a" "$(NEWLIBDIR)/lib/li
  	$(CIRCLEHOME)/lib/fs/libfs.a \
   	$(CIRCLEHOME)/lib/net/libnet.a \
   	$(CIRCLEHOME)/lib/sched/libsched.a \
+	$(CIRCLEHOME)/lib/sound/libsound.a \
   	$(CIRCLEHOME)/lib/libcircle.a
 
 -include $(DEPS)

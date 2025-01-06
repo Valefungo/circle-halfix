@@ -106,7 +106,7 @@ enum {
 };
 
 int pc_init(struct pc_settings* pc);
-int pc_execute(void);
+int pc_execute(int maxcycles);
 uint32_t pc_run(void);
 void pc_set_a20(int state);
 void pc_in_hlt(void);
