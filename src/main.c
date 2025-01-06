@@ -15,6 +15,8 @@
 static struct pc_settings pc;
 int parse_cfg(struct pc_settings* pc, char* data);
 
+int realtime_option = 0;
+
 struct option {
     const char *alias, *name;
     int flags, id;
@@ -66,7 +68,7 @@ int main_halfix_unix(int argc, char** argv)
     UNUSED(argv);
 
     char* configfile = "default.conf";
-    int filesz, realtime = 0;
+    int filesz=0;
     FILE* f;
     char* buf;
 
@@ -86,7 +88,7 @@ int main_halfix_unix(int argc, char** argv)
                 if (o->flags & HASARG) {
                     if (!(data = argv[++i])) {
                         fprintf(stderr, "Expected argument to option %s\n", arg);
-                        return 0;
+                        return -1;
                     }
                 } else
                     data = NULL;
@@ -99,7 +101,7 @@ int main_halfix_unix(int argc, char** argv)
                     configfile = data;
                     continue;
                 case OPTION_REALTIME:
-                    realtime = -1;
+                    realtime_option = -1;
                     continue;
                 }
                 break;
@@ -143,13 +145,23 @@ parse_config:
         fprintf(stderr, "Unable to initialize PC\n");
         return -1;
     }
-#if 0
-    // Good for debugging
-    while(1){
-        pc_execute();
+
+    // all ok
+    return 0;
+}
+
+void mainloop_processor_debug()
+{
+    // Good for debugging the CPU alone
+    while(1) {
+        pc_execute(0);
     }
-#else
-    // Good for real-world stuff
+}
+
+void mainloop_single_core()
+{
+    // Single loop that does everything with some frameskip and adaptive execution
+    // good for real-world stuff
     int frames = 10;
     int vgaupd = 0;
     char deb[200]="";
@@ -178,7 +190,7 @@ parse_config:
         c = SDL_wrapCheckTimerMs() - (b);
 
         display_handle_events();
-        ms_to_sleep &= realtime;
+        ms_to_sleep &= realtime_option;
 
         d = SDL_wrapCheckTimerMs() - (b + c);
 
@@ -190,5 +202,59 @@ parse_config:
         sprintf(deb, "FR: %02d - Exe:%03u - vga:%03u - eve:%03u - slp:%03u  -  Tot:%04u", frames, b, c, d, e, (b + c + d + e));
         SDL_wrapScreenLogAt(deb, 20, 740);
     }
-#endif
+}
+
+// no VGA update
+void mainloop_multi_core_zero()
+{
+    // Multiple loop types, good for real-world stuff
+    int frames = 10;
+    char deb[200]="";
+    unsigned b, c, d;
+    while (1)
+    {
+        SDL_wrapStartTimer();
+        SDL_wrapCheckTimerMs();
+
+        int ms_to_sleep = pc_execute(frames);
+
+        b = SDL_wrapCheckTimerMs();
+
+        if (b > 100 && frames > 0)
+            frames--;
+        if (b < 100 && frames < 10)
+            frames++;
+
+        display_handle_events();
+        ms_to_sleep &= realtime_option;
+
+        c = SDL_wrapCheckTimerMs() - (b);
+
+        // ms_to_sleep is always zero here, this updates the USB status
+        display_sleep(ms_to_sleep * 5);
+
+        d = SDL_wrapCheckTimerMs() - (b + c);
+
+        sprintf(deb, "FR: %02d - Exe:%03u - eve:%03u - slp:%03u  -  Tot:%04u", frames, b, c, d, (b + c + d));
+        SDL_wrapScreenLogAt(deb, 20, 740);
+    }
+}
+
+void mainloop_multi_core_one()
+{
+    // VGA update loop
+    char deb[200]="";
+    while (1) {
+
+        unsigned b;
+        SDL_wrapStartTimer();
+        SDL_wrapCheckTimerMs();
+
+        vga_update();
+
+        b = SDL_wrapCheckTimerMs();
+
+        sprintf(deb, "VGA:%03u", b);
+        SDL_wrapScreenLogAt(deb, 20, 756);
+    }
 }

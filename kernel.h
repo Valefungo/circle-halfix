@@ -98,6 +98,7 @@ public:
     COscillator m_LFO;
     COscillator m_VFO;
 
+    boolean bRunningMulticore;
     CStdlibAppMultiCore mStdlibAppMultiCore;
 
     void UpdateKeyboardAndMouse();

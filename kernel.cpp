@@ -48,6 +48,12 @@ extern "C" {
     // the real main
     int main_halfix_unix(int argc, char **argv);
 
+    // the three loop types
+    void mainloop_processor_debug();
+    void mainloop_single_core();
+    void mainloop_multi_core_zero();
+    void mainloop_multi_core_one();
+
 #ifdef __cplusplus
 }
 #endif
@@ -367,13 +373,6 @@ void SDL_Speaker_Update(int mode, int count)
     char deb[100];
     sprintf(deb, "S: M:%d, C:%d", mode, count);
     SDL_wrapScreenLogAt(deb, 10, 30);
-}
-
-void CStdlibAppMultiCore::Run(unsigned int nCore)
-{
-    char deb[100];
-    sprintf(deb, "CORE: %d Run", nCore);
-    SDL_wrapScreenLogAt(deb, 10, 50 + (nCore*16));
 }
 
 
@@ -708,20 +707,54 @@ bool CKernel::Initialize(void)
     kmap_usb_to_ps2[0xE6]=0xE038; // Right Alt
     kmap_usb_to_ps2[0xE7]=0xE05C; // Right GUI
 
-    mStdlibAppMultiCore.Initialize();
+    // this return FALSE if the multicore support can't initialize all the Cores
+    bRunningMulticore = mStdlibAppMultiCore.Initialize();
 
     return r;
+}
+
+void CStdlibAppMultiCore::Run(unsigned int nCore)
+{
+    char deb[100];
+    sprintf(deb, "CORE: %d Run", nCore);
+    SDL_wrapScreenLogAt(deb, 10, 50 + (nCore*16));
+
+    if (nCore == 0)
+    {
+            // main loop run without VGA update, this should not return.
+            mainloop_multi_core_zero();
+    }
+    else if (nCore == 1)
+    {
+            // main loop with only VGA update, this should not return.
+            mainloop_multi_core_one();
+    }
+    else
+    {
+        // Core 2 and 3 have nothing to do right now.
+    }
 }
 
 CStdlibApp::TShutdownMode CKernel::Run (void)
 {
     LOGG_K( "Circle-Halfix - Compile time: " __DATE__ " " __TIME__);
 
-    mStdlibAppMultiCore.Run(0);
-
+    // initialize everything
     char *argv[] = { (char *)"halfix" };
     int retval = main_halfix_unix(1, argv);
-    // int retval = 0;
+
+    if (retval >= 0)
+    {
+        if (bRunningMulticore)
+        {
+            mStdlibAppMultiCore.Run(0);
+        }
+        else
+        {
+            // main loop run, this should not return.
+            mainloop_single_core();
+        }
+    }
 
     // if everything goes well, we'll never reach this point
     LOGG_K( "Shutting down because of %d...", retval);
