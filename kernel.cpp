@@ -53,6 +53,7 @@ extern "C" {
     void mainloop_single_core();
     void mainloop_multi_core_zero();
     void mainloop_multi_core_one();
+    void mainloop_multi_core_two();
 
 #ifdef __cplusplus
 }
@@ -721,17 +722,22 @@ void CStdlibAppMultiCore::Run(unsigned int nCore)
 
     if (nCore == 0)
     {
-            // main loop run without VGA update, this should not return.
-            mainloop_multi_core_zero();
+        // main loop run without VGA update, this should not return.
+        mainloop_multi_core_zero();
     }
     else if (nCore == 1)
     {
-            // main loop with only VGA update, this should not return.
-            mainloop_multi_core_one();
+        // main loop with only VGA update, this should not return.
+        mainloop_multi_core_one();
+    }
+    else if (nCore == 2)
+    {
+        // main loop with only debug writings, this should not return.
+        mainloop_multi_core_two();
     }
     else
     {
-        // Core 2 and 3 have nothing to do right now.
+        // Core 3 has nothing to do right now.
     }
 }
 

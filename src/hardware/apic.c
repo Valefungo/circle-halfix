@@ -584,7 +584,9 @@ int apic_next(itick_t now)
     }
 
     itick_t next = apic.timer_next - now;
-    if(next > 0xFFFFFFFF) return -1; // Don't allow wrap-around of large integers
+    if (next > 0xFFFFFFFF)
+        return -1; // Don't allow wrap-around of large integers
+
     return (uint32_t)next;
 }
 

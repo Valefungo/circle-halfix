@@ -374,6 +374,10 @@ static uint32_t devices_get_next_raw(itick_t now)
         if (next[i] < min)
             min = next[i];
     }
+
+    if (min < 100)
+        printf("%u %u %u %u %u - %lu\n", next[0], next[1], next[2], next[3], min, now);
+
     return min;
 }
 
@@ -417,6 +421,7 @@ int pc_execute(int maxcycles)
     if (!drive_async_event_in_progress() && (cpu_get_cycles() - last) > INSNS_PER_FRAME) {
 // Verify that timing is identical
 #ifndef DISABLE_CONSTANT_SAVING
+#error no please
         state_store_to_file("savestates/halfix_state");
 #ifndef DISABLE_RESTORE
         state_read_from_file("savestates/halfix_state");

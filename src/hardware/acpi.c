@@ -59,9 +59,14 @@ static inline uint32_t read32le(uint8_t* x, uint32_t offset)
     return res;
 }
 
-static uint32_t acpi_get_clock(itick_t now)
+static itick_t acpi_get_clock(itick_t now)
 {
     return (double)now * (double)ACPI_CLOCK_SPEED / (double)ticks_per_second;
+}
+
+static itick_t acpi_get_ticks(uint32_t now)
+{
+    return (double)now * (double)ticks_per_second / (double)ACPI_CLOCK_SPEED;
 }
 
 static uint32_t acpi_pm_read(uint32_t addr)
@@ -238,18 +243,22 @@ int acpi_next(itick_t now_tick)
         raise_irq = 1;
     }
     if (acpi.pmsts_en & (1 << 16)) {
-        // Find out when we overflow our 23 bit counter
         acpi.pmsts_en |= 1;
+
+        // Find out when we overflow our 23 bit counter
         if (raise_irq) {
             pic_raise_irq(9);
         }else
             pic_lower_irq(9);
 
-        acpi.last_pm_clock = acpi_get_clock(now_tick);
+        acpi.last_pm_clock = acpi_get_clock(now_tick) & 0x00FFFFFF;
+
         // Now find transition time from now.
-        uint32_t ticks_left = 0x1000000 - now;
+        itick_t ticks_left = acpi_get_ticks(0x1000000 - now);
+
         // Convert it into ticks
-        return (double)ticks_left * (double)ticks_per_second / (double)ACPI_CLOCK_SPEED;
+        // return (double)ticks_left * (double)ticks_per_second / (double)ACPI_CLOCK_SPEED;
+        return ticks_left;
     } else {
         pic_lower_irq(9);
         return -1; // No timer enabled, ignore
