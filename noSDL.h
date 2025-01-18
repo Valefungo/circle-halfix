@@ -74,16 +74,18 @@ SDL_Surface * SDL_CreateRGBSurfaceFrom(void *pixels, int width, int height, int 
 void SDL_WM_SetCaption(const char *title, const char *icon);
 SDL_GrabMode SDL_WM_GrabInput(SDL_GrabMode mode);
 
-void SDL_Kernel_Log(const char *line);
+void noSDL_UpdateUSB();
 
-void SDL_Speaker_Enable(int enable);
-void SDL_Speaker_Update(int mode, int count);
+void noSDL_Kernel_Log(const char *line);
+
+void noSDL_Speaker_Enable(int enable);
+void noSDL_Speaker_Update(int mode, int count);
 
 
-void SDL_wrapStartTimer();
-unsigned SDL_wrapCheckTimer();
-unsigned SDL_wrapCheckTimerMs();
-void SDL_wrapScreenLogAt(char *line, unsigned x, unsigned y);
+void noSDL_wrapStartTimer();
+unsigned noSDL_wrapCheckTimer();
+unsigned noSDL_wrapCheckTimerMs();
+void noSDL_wrapScreenLogAt(char *line, unsigned x, unsigned y);
 
 #ifdef __cplusplus
 }

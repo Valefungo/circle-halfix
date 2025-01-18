@@ -164,16 +164,15 @@ void mainloop_single_core()
     // good for real-world stuff
     int frames = 10;
     int vgaupd = 0;
-    char deb[200]="";
     while (1) {
 
         unsigned b, c, d, e;
-        SDL_wrapStartTimer();
-        SDL_wrapCheckTimerMs();
+        noSDL_wrapStartTimer();
+        noSDL_wrapCheckTimerMs();
 
         int ms_to_sleep = pc_execute(frames);
 
-        b = SDL_wrapCheckTimerMs();
+        b = noSDL_wrapCheckTimerMs();
 
         if (b > 100 && frames > 0)
             frames--;
@@ -187,20 +186,20 @@ void mainloop_single_core()
         if (vgaupd == 0)
             vga_update();
 
-        c = SDL_wrapCheckTimerMs() - (b);
+        c = noSDL_wrapCheckTimerMs() - (b);
 
         display_handle_events();
         ms_to_sleep &= realtime_option;
 
-        d = SDL_wrapCheckTimerMs() - (b + c);
+        d = noSDL_wrapCheckTimerMs() - (b + c);
 
         // ms_to_sleep is always zero here, this updates the USB status
         display_sleep(ms_to_sleep * 5);
 
-        e = SDL_wrapCheckTimerMs() - (b + c + d);
+        e = noSDL_wrapCheckTimerMs() - (b + c + d);
 
         // sprintf(deb, "FR: %02d - Exe:%03u - vga:%03u - eve:%03u - slp:%03u  -  Tot:%04u", frames, b, c, d, e, (b + c + d + e));
-        // SDL_wrapScreenLogAt(deb, 20, 740);
+        // noSDL_wrapScreenLogAt(deb, 20, 740);
     }
 }
 
@@ -213,12 +212,12 @@ void mainloop_multi_core_zero()
     // Multiple loop types, good for real-world stuff
     while (1)
     {
-        SDL_wrapStartTimer();
-        SDL_wrapCheckTimerMs();
+        noSDL_wrapStartTimer();
+        noSDL_wrapCheckTimerMs();
 
         int ms_to_sleep = pc_execute(frames);
 
-        time_exe = SDL_wrapCheckTimerMs();
+        time_exe = noSDL_wrapCheckTimerMs();
 
         if (time_exe > 100 && frames > 0)
             frames--;
@@ -231,7 +230,7 @@ void mainloop_multi_core_zero()
         // ms_to_sleep is always zero here, this updates the USB status
         display_sleep(ms_to_sleep * 5);
 
-        time_rest = SDL_wrapCheckTimerMs() - time_exe;
+        time_rest = noSDL_wrapCheckTimerMs() - time_exe;
     }
 }
 
@@ -242,10 +241,10 @@ void mainloop_multi_core_two()
     while (1)
     {
         sprintf(deb, "FR: %02d - Exe:%03u - Rest:%03u - Tot:%03u", frames, time_exe, time_rest, (time_exe+time_rest));
-        SDL_wrapScreenLogAt(deb, 20, 740);
+        noSDL_wrapScreenLogAt(deb, 20, 740);
 
         sprintf(deb, "VGA:%03u", time_vga);
-        SDL_wrapScreenLogAt(deb, 20, 756);
+        noSDL_wrapScreenLogAt(deb, 20, 756);
 
         SDL_Delay(100);
     }
@@ -256,11 +255,11 @@ void mainloop_multi_core_one()
     // VGA update loop
     while (1)
     {
-        SDL_wrapStartTimer();
-        SDL_wrapCheckTimerMs();
+        noSDL_wrapStartTimer();
+        noSDL_wrapCheckTimerMs();
 
         vga_update();
 
-        time_vga = SDL_wrapCheckTimerMs();
+        time_vga = noSDL_wrapCheckTimerMs();
     }
 }

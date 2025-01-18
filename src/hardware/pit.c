@@ -278,7 +278,7 @@ static void pit_writeb(uint32_t port, uint32_t value)
             if (channel == 2)
             {
                 // this.bus.send("pcspeaker-update", [this.counter_mode[2], this.counter_reload[2]]);
-                SDL_Speaker_Update(chan->mode, chan->count);
+                noSDL_Speaker_Update(chan->mode, chan->count);
             }
             break;
         }
@@ -307,7 +307,7 @@ static void pit_writeb(uint32_t port, uint32_t value)
         if (channel == 2)
         {
             // this.bus.send("pcspeaker-update", [this.counter_mode[2], this.counter_reload[2]]);
-            SDL_Speaker_Update(chan->mode, chan->count);
+            noSDL_Speaker_Update(chan->mode, chan->count);
         }
         break;
     }
@@ -454,7 +454,7 @@ static void pit_speaker_writeb(uint32_t port, uint32_t data)
 {
     PIT_LOG("%sabled the pc speaker\n", data & 1 ? "En" : "Dis");
 
-    SDL_Speaker_Enable(data & 1);
+    noSDL_Speaker_Enable(data & 1);
 }
 
 void pit_init(void)

@@ -241,5 +241,6 @@ void display_init(void)
 void display_sleep(int ms)
 {
     SDL_Delay(ms);
+    noSDL_UpdateUSB();
 }
 

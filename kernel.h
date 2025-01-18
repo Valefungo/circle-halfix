@@ -58,6 +58,9 @@ public:
 
     CKernel (void);
     virtual bool Initialize(void);
+    void *HighMem_Alloc(long size);
+
+    int64_t fileGetSize(char *fname);
 
     void MsPause(int ms);
     void StartTimer();

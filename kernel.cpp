@@ -159,8 +159,6 @@ void SDL_Delay(Uint32 ms)
 {
     // delay is actually unused but let's take the opportunity to update the USB status
     this_kernel->MsPause(ms);
-
-    this_kernel->UpdateKeyboardAndMouse();
 }
 
 void SDL_WM_SetCaption(const char *title, const char *icon)
@@ -174,10 +172,25 @@ SDL_GrabMode SDL_WM_GrabInput(SDL_GrabMode mode)
     return mode;
 }
 
-void SDL_Kernel_Log(const char *line)
+void noSDL_UpdateUSB()
+{
+    this_kernel->UpdateKeyboardAndMouse();
+}
+
+void noSDL_Kernel_Log(const char *line)
 {
     // easy logging
     LOGG_C( "KLOG %s", line);
+}
+
+void *noSDL_HighMem_Alloc(long size)
+{
+    return this_kernel->HighMem_Alloc(size);
+}
+
+int64_t noSDL_fileGetSize(char *fname)
+{
+    return this_kernel->fileGetSize(fname);
 }
 
 SDL_Event static_event[6];
@@ -187,13 +200,13 @@ SDL_Event static_mouse_button_event[3];
 int lastmousex=0;
 int lastmousey=0;
 
-void addModDown(int slot, int mod)
+static void addModDown(int slot, int mod)
 {
     static_mod_event[slot].type = SDL_MOD_KEYDOWN;
     static_mod_event[slot].key_keysym_mod = mod;
 }
 
-void addModUp(int slot, int mod)
+static void addModUp(int slot, int mod)
 {
     static_mod_event[slot].type = SDL_MOD_KEYUP;
     static_mod_event[slot].key_keysym_mod = mod;
@@ -340,40 +353,40 @@ SDL_Surface * SDL_CreateRGBSurfaceFrom(void *pixels, int width, int height, int 
     return su;
 }
 
-void SDL_wrapStartTimer()
+void noSDL_wrapStartTimer()
 {
     this_kernel->StartTimer();
 }
 
-unsigned SDL_wrapCheckTimer()
+unsigned noSDL_wrapCheckTimer()
 {
     return this_kernel->CheckTimer();
 }
 
-unsigned SDL_wrapCheckTimerMs()
+unsigned noSDL_wrapCheckTimerMs()
 {
     return this_kernel->CheckTimerMs();
 }
 
-void SDL_wrapScreenLogAt(char *line, unsigned x, unsigned y)
+void noSDL_wrapScreenLogAt(char *line, unsigned x, unsigned y)
 {
     this_kernel->DrawColorRect (x, y, 800, 16, BLACK_COLOR);
     this_kernel->DrawText (x, y, BRIGHT_WHITE_COLOR, line, CKernel::TTextAlign::AlignLeft);
 }
 
-void SDL_Speaker_Enable(int enable)
+void noSDL_Speaker_Enable(int enable)
 {
     if (enable)
-        SDL_wrapScreenLogAt((char*)"S:ON", 10, 10);
+        noSDL_wrapScreenLogAt((char*)"S:ON", 10, 10);
     else
-        SDL_wrapScreenLogAt((char*)"S:OFF", 10, 10);
+        noSDL_wrapScreenLogAt((char*)"S:OFF", 10, 10);
 }
 
-void SDL_Speaker_Update(int mode, int count)
+void noSDL_Speaker_Update(int mode, int count)
 {
     char deb[100];
     sprintf(deb, "S: M:%d, C:%d", mode, count);
-    SDL_wrapScreenLogAt(deb, 10, 30);
+    noSDL_wrapScreenLogAt(deb, 10, 30);
 }
 
 
@@ -388,6 +401,18 @@ CKernel::CKernel (void) : CStdlibAppStdio ("circle-halfix"),
     p_mLogger = &mLogger;   // make this available to C code
     mActLED.Blink (5);  // show we are alive
 }
+
+void *CKernel::HighMem_Alloc(long size)
+{
+    void *p = new (HEAP_HIGH) unsigned char[size];
+    return p;
+}
+
+int64_t CKernel::fileGetSize(char *fname)
+{
+    return 0;
+}
+
 
 void CKernel::DrawColorRect (unsigned nX, unsigned nY, unsigned nWidth, unsigned nHeight, TScreenColor Color,
                              unsigned nTargetWidth, unsigned nTargetHeight, TScreenColor *targetPixelBuffer)
@@ -718,7 +743,7 @@ void CStdlibAppMultiCore::Run(unsigned int nCore)
 {
     char deb[100];
     sprintf(deb, "CORE: %d Run", nCore);
-    SDL_wrapScreenLogAt(deb, 10, 50 + (nCore*16));
+    noSDL_wrapScreenLogAt(deb, 10, 50 + (nCore*16));
 
     if (nCore == 0)
     {
