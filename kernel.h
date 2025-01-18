@@ -21,6 +21,7 @@
 #define _kernel_h
 
 #include <string>
+#include <circle/new.h>
 #include <circle_stdlib_app.h>
 #include <circle/actled.h>
 #include <circle/koptions.h>
@@ -59,8 +60,10 @@ public:
     CKernel (void);
     virtual bool Initialize(void);
     void *HighMem_Alloc(long size);
+    void HighMem_Delete(void *p);
 
-    int64_t fileGetSize(char *fname);
+    uint64_t fileGetSize(char *fname);
+    uint64_t fileFullRead(char *fname, void *buffer, uint64_t size);
 
     void MsPause(int ms);
     void StartTimer();

@@ -188,10 +188,21 @@ void *noSDL_HighMem_Alloc(long size)
     return this_kernel->HighMem_Alloc(size);
 }
 
-int64_t noSDL_fileGetSize(char *fname)
+void noSDL_HighMem_Delete(void *p)
+{
+    return this_kernel->HighMem_Delete(p);
+}
+
+uint64_t noSDL_fileGetSize(char *fname)
 {
     return this_kernel->fileGetSize(fname);
 }
+
+uint64_t noSDL_fileFullRead(char *fname, void *buffer, uint64_t size)
+{
+    return this_kernel->fileFullRead(fname, buffer, size);
+}
+
 
 SDL_Event static_event[6];
 SDL_Event static_mod_event[8];
@@ -404,14 +415,74 @@ CKernel::CKernel (void) : CStdlibAppStdio ("circle-halfix"),
 
 void *CKernel::HighMem_Alloc(long size)
 {
-    void *p = new (HEAP_HIGH) unsigned char[size];
+    unsigned char *p = new (HEAP_HIGH) unsigned char[size];
     return p;
 }
 
-int64_t CKernel::fileGetSize(char *fname)
+void CKernel::HighMem_Delete(void *p)
 {
+    delete p;
+}
+
+uint64_t CKernel::fileGetSize(char *fname)
+{
+    uint64_t sz = 0;
+    FIL fp;
+    if (f_open(&fp, fname, FA_OPEN_EXISTING) == FR_OK)
+    {
+        sz = f_size(&fp);
+        f_close(&fp);
+    }
+
+    return sz;
+}
+
+uint64_t CKernel::fileFullRead(char *fname, void *buffer, uint64_t size)
+{
+    #define TEN_MEGS (10*1024*1024)
+
+    FIL fp;
+    if (f_open(&fp, fname, FA_OPEN_EXISTING | FA_READ) == FR_OK)
+    {
+        int c = 0;
+        UINT sz = 0;
+        unsigned char tenmega[TEN_MEGS];
+        uint8_t *bf = (uint8_t *)buffer;
+
+        while (sz < size)
+        {
+            UINT br = 0;
+
+            c++;
+            FRESULT res = f_read(&fp, tenmega, TEN_MEGS, &br);
+            LOGG_K("READ: %d --> %d", c, size / TEN_MEGS);
+
+            if (res != FR_OK)
+            {
+                LOGG_K("READ: FAIL %d - %lu : %d", c, sz, res);
+                f_close(&fp);
+                return res;
+            }
+            else
+            {
+                memcpy(&(bf[sz]), tenmega, br);
+            }
+
+            sz += br;
+
+            if (sz >= size)
+                break;
+        }
+
+        // FRESULT res = f_read(&fp, buffer, btr, &br);
+        f_close(&fp);
+
+        return size;
+    }
+
     return 0;
 }
+
 
 
 void CKernel::DrawColorRect (unsigned nX, unsigned nY, unsigned nWidth, unsigned nHeight, TScreenColor Color,

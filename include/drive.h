@@ -4,14 +4,7 @@
 #include "state.h"
 #include <stdint.h>
 
-#define ALLOW_64BIT_OFFSETS
-
-#ifdef ALLOW_64BIT_OFFSETS
 typedef uint64_t drv_offset_t;
-#else
-typedef uint32_t drv_offset_t;
-#endif
-
 
 #define DRIVE_LOG(x, ...) LOG("DRIVE", x, ##__VA_ARGS__)
 #define DRIVE_FATAL(x, ...)                \
@@ -56,11 +49,8 @@ void drive_state(struct drive_info* info, char* filename);
 
 int drive_autodetect_type(char* path);
 
-int drive_init(struct drive_info* info, char* path);
-
-int drive_sync_init(struct drive_info* info, char* path);
-int drive_async_init(struct drive_info* info, char* path);
 int drive_simple_init(struct drive_info* info, char* path);
+int drive_ramdisk_init(struct drive_info* info, char* path);
 
 int drive_read(struct drive_info*, void*, void*, uint32_t, drv_offset_t, drive_cb);
 int drive_write(struct drive_info*, void*, void*, uint32_t, drv_offset_t, drive_cb);

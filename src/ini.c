@@ -267,10 +267,6 @@ static const struct ini_enum boot_types[] = {
 static const struct ini_enum driver_types[] = {
     { "sync", 1 },
     { "raw", 1 },
-    { "chunked", 0 },
-    { "normal", 0 },
-    { "network", 2 },
-    { "net", 2 },
     { NULL, 0 }
 };
 static const struct ini_enum virtio_types[] = {
@@ -300,15 +296,17 @@ static int parse_disk(struct drive_info* drv, struct ini_section* s, int id)
             FATAL("INI", "Unable to determine driver to use for ata%d-%s!\n", id >> 1, id & 1 ? "slave" : "master");
     }
 
-    if (driver == 0 && wb)
-        printf("WARNING: Disk %d uses async (chunked) driver but writeback is not supported!!\n", id);
     drv->modify_backing_file = wb;
     if (path && inserted) {
         UNUSED(id);
-        if (driver == 0)
-            return drive_init(drv, path);
-        else
-            return drive_simple_init(drv, path);
+
+        int r = drive_ramdisk_init(drv, path);
+
+        // fallback
+        if (r == -1)
+            r = drive_simple_init(drv, path);
+
+        return r;
     }
 
     return 0;

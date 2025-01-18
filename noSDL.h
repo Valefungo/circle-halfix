@@ -74,7 +74,12 @@ SDL_Surface * SDL_CreateRGBSurfaceFrom(void *pixels, int width, int height, int 
 void SDL_WM_SetCaption(const char *title, const char *icon);
 SDL_GrabMode SDL_WM_GrabInput(SDL_GrabMode mode);
 
+void *noSDL_HighMem_Alloc(long size);
+void noSDL_HighMem_Delete(void *p);
+
 void noSDL_UpdateUSB();
+uint64_t noSDL_fileGetSize(char *fname);
+uint64_t noSDL_fileFullRead(char *fname, void *buffer, uint64_t size);
 
 void noSDL_Kernel_Log(const char *line);
 
